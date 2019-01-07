@@ -33,7 +33,8 @@ module.exports = {
           title: "日常记录",
           collapsable: true,
           children: [
-            ""
+            "",
+            "2019"
           ]
         },
         {
