@@ -68,3 +68,17 @@ watch() {
 方案2：
 
 `<Menu v-if="menuData.length !== 0"/>`
+
+### 滚动进度条核心代码
+
+::: tip 原理
+视口滚动的距离 / 文档总高度 - 视口高度
+:::
+
+```js
+// jq
+($(window).scrollTop() / ($(document).height() - $(window).height())) * 100
+
+// js
+window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100
+```
