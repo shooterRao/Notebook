@@ -82,3 +82,5 @@ watch() {
 // js
 window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100
 ```
+
+<ToTop/>
