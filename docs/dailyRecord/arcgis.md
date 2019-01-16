@@ -1,6 +1,6 @@
 # arcgis js api 记录
 
-### Map
+## Map
 
 所有类都有共用 map 对象
 
@@ -16,16 +16,16 @@ IdentifyTask
 Buffer
 Geometryservices..
 
-### 查询服务地址
+## 查询服务地址
 
 一般为静态服务+'/0'
 
-### 根据 id 获取 layer
+## 根据 id 获取 layer
 
 this.map.getLayer(layerobj.serviceuid)
 this.map.layerIds (地图已加载的图层 ID 列表)
 
-### createSymbol
+## createSymbol
 
 ```js
 function createMarkerSymbol(path, color) {
@@ -38,7 +38,7 @@ function createMarkerSymbol(path, color) {
 }
 ```
 
-### 查询
+## 查询
 
 ```js
 var query = new Query();
@@ -52,19 +52,19 @@ query.outFields = ["*”];// 所有字段
 queryTask.execute(Query,function(){})
 ```
 
-### 查出结果，获取地理信息
+## 查出结果，获取地理信息
 
 ```js
 resultGraphic.geometry.getExtent();
 ```
 
-### 获取地理信息中心点
+## 获取地理信息中心点
 
 ```js
 resultGraphic.geometry.getExtent().getCenter();
 ```
 
-### 查询
+## 查询
 
 ```js
 // 模糊查询
@@ -75,7 +75,7 @@ query.where = "NAME =" + "\'" + text + "\'";
 query.where ="CASETYPE = '” + name + "' and SECTION-NAME = '” + this.branchName + "' ";
 ```
 
-### 2018/06/20
+## 2018/06/20
 
 1.同 id 的 graphicLayer 图层只能添加一次，不能重复添加，不然无法添加 graphic 到该 graphicLayer 上
 
@@ -83,7 +83,7 @@ query.where ="CASETYPE = '” + name + "' and SECTION-NAME = '” + this.branchN
 
 3.关于定位和 infoWindow show 时，控制台会出现一堆报错信息，原因是地图定位到某个点时，定位是异步的，图层还是移动，infoWindow 的 show 方法是同步的，图层未移动完成直接执行 infoWindow 的 show 方法会找不到指定的点。解决办法是 this.map.centerAt(xxx).then(function(){ infoWindow.show() })
 
-### 面积计算
+## 面积计算
 
 ```js
 function calculateAreaByGeometry(geometries) {
@@ -102,7 +102,7 @@ function calculateAreaByGeometry(geometries) {
 },
 ```
 
-### 格式化返回数据格式 cad
+## 格式化返回数据格式 cad
 
 ```js
 function formateCadData(rendererInfo) {
@@ -134,7 +134,7 @@ if(_Polyline != null && _Polyline != "")
 }
 ```
 
-### 生成气泡
+## 生成气泡
 
 ```js
 function _createMarkerSymbol(path, color) {
@@ -193,7 +193,7 @@ if (!this.polygonSymbol) {
 }
 ```
 
-### 加入图层
+## 加入图层
 
 ```js
 this.identifyGraphicLayer.add(currentGra);
@@ -204,7 +204,7 @@ dgpUtils.featureAction.zoomTo(this.map, [currentGra], { extentFactor: "2" });
 this.map.setExtent(geometry.getExtent().expand(2));
 ```
 
-### 导出 excel
+## 导出 excel
 
 ```js
 function exportToExecl() {
@@ -236,7 +236,7 @@ array.forEach(Object.keys(tableDataSource), function (key) {
 }
 ```
 
-### I 查询
+## I 查询
 
 ```js
 _IdentifyOneByOne: function (geometry, index) {
@@ -270,7 +270,7 @@ if ((index + 1) < QueryConfig.length) {
 },
 ```
 
-### 绘制缓冲区
+## 绘制缓冲区
 
 ```js
 function doBuffer(bufferRange) {
@@ -291,13 +291,13 @@ this._geoService.buffer(bufferParams, lang.hitch(this, function (results) {
 },
 ```
 
-### 获取打开的专题
+## 获取打开的专题
 
 ```js
 this.topicManager.getOpenedTopics(),
 ```
 
-### 关于调用 SOE 服务，如何传 rings？
+## 关于调用 SOE 服务，如何传 rings？
 
 绘制完成后，如果要加缓冲区，先调用计算缓冲区的服务，计算出根据绘制后的 geometry 和当前的缓冲范围，再配置参数传给 SOE
 
