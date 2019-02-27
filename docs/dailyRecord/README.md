@@ -40,7 +40,7 @@ location /vue/ {
 
 **解决方案**
 
-方案1：
+方案 1：
 
 ```js
 // 利用watch
@@ -65,7 +65,7 @@ watch() {
 }
 ```
 
-方案2：
+方案 2：
 
 `<Menu v-if="menuData.length !== 0"/>`
 
@@ -77,10 +77,42 @@ watch() {
 
 ```js
 // jq
-($(window).scrollTop() / ($(document).height() - $(window).height())) * 100
+($(window).scrollTop() / ($(document).height() - $(window).height())) * 100;
 
 // js
-window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100
+(window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+```
+
+## 二月
+
+### vue jsx 使用全局组件
+
+在 vue jsx 中只能使用`(kebab-case)`的全局组件，不能使用`(PascalCase)`，如果要使用`(PascalCase)`，可以这么写
+
+```js
+render (h) {
+  const { Tabs, TabPane } = this.$options.components;
+  return (
+    <Tabs>
+      <TabPane></TabPane>
+    </Tabs>
+  )
+}
+```
+
+### tomcat 开启 gzip 配置
+
+```xml
+<Connector  port="8088" 
+            protocol="HTTP/1.1"
+            connectionTimeout="20000"
+            redirectPort="8443" URIEncoding="utf-8"
+	          useSendfile="false"
+            compression="on"
+            compressionMinSize="50"
+            noCompressionUserAgents="gozilla,traviata"
+            compressableMimeType="text/html,text/xml,text/javascript,application/x-javascript,application/javascript,text/css,text/plain"
+/>
 ```
 
 <ToTop/>
