@@ -320,6 +320,8 @@
 
 - [JavaScript 开发者应懂的 33 个概念(英文版)](https://github.com/leonardomso/33-js-concepts)
 
+- [正则表达式在线练习](https://github.com/ziishaned/learn-regex/blob/master/translations/README-cn.md)
+
 ### 值得学习的开源库
 
 - [前端特效连载](https://github.com/comehope/front-end-daily-challenges)

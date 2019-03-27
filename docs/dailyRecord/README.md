@@ -102,8 +102,10 @@ render (h) {
 
 ### tomcat 开启 gzip 配置
 
+在`conf/server.xml`文件中进行配置
+
 ```xml
-<Connector  port="8088" 
+<Connector  port="8088"
             protocol="HTTP/1.1"
             connectionTimeout="20000"
             redirectPort="8443" URIEncoding="utf-8"
@@ -114,5 +116,74 @@ render (h) {
             compressableMimeType="text/html,text/xml,text/javascript,application/x-javascript,application/javascript,text/css,text/plain"
 />
 ```
+
+## 三月
+
+### vue v-model 细节
+
+`v-model` 在内部使用不同的属性为不同的输入元素并抛出不同的事件：
+
+- text 和 textarea 元素使用 value 属性和 input 事件
+- checkbox 和 radio 使用 checked 属性和 change 事件
+- select 字段将 value 作为 prop 并将 change 作为事件
+
+### js 找出数组最大最小值
+
+```js
+const getMaxNumber = (array) => Math.max(...array);
+const getMinNumber = (array) => Math.min(...array);
+```
+
+### vue 强迫重新渲染
+
+```js
+Vue.component("comp", {
+  created() {
+    console.log("被重新渲染了");
+  },
+  render(h) {
+    return h('span', "组件");
+  },
+});
+const app = new Vue({
+  el: '#app',
+  data: {
+    key: 0
+  },
+  methods: {
+    update() {
+      this.key++;
+    }
+  },
+  render(h) {
+    const vm = this;
+    return h("div", [h("comp", {
+      key: vm.key
+    }), h("button", {
+      on: {
+        click: function() {
+          vm.update();
+        }
+      }
+    }, "刷新")])
+  }
+});
+```
+
+### vue 路由跳转重渲染
+
+比如，在点击菜单切换，在父组件中会进行`$router.push({name: xxx, query: xxx})`切换子路由页面(同一个组件)，子路由页面会获取相关路由参数进行数据请求，但是vue-router会默认**同一组件不重复实例化**，所以我们有2种方法：
+
+1、子路由`watch: $route`，然后进行相关请求逻辑
+
+2、每次跳转路由(即使是同一个)都强制重刷新
+
+第一种方法经常用了，这里不再详叙。根据上个笔记的启发，我们可以通过如下写法轻松实现强制组件重渲染
+
+```html
+<router-view :key="$route.fullPath"/>
+```
+
+注意，组件渲染量少的话可以使用，如果组件很重，还是建议使用第一种方法
 
 <ToTop/>
