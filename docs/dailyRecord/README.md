@@ -130,8 +130,8 @@ render (h) {
 ### js 找出数组最大最小值
 
 ```js
-const getMaxNumber = (array) => Math.max(...array);
-const getMinNumber = (array) => Math.min(...array);
+const getMaxNumber = array => Math.max(...array);
+const getMinNumber = array => Math.min(...array);
 ```
 
 ### vue 强迫重新渲染
@@ -142,11 +142,11 @@ Vue.component("comp", {
     console.log("被重新渲染了");
   },
   render(h) {
-    return h('span', "组件");
-  },
+    return h("span", "组件");
+  }
 });
 const app = new Vue({
-  el: '#app',
+  el: "#app",
   data: {
     key: 0
   },
@@ -157,22 +157,29 @@ const app = new Vue({
   },
   render(h) {
     const vm = this;
-    return h("div", [h("comp", {
-      key: vm.key
-    }), h("button", {
-      on: {
-        click: function() {
-          vm.update();
-        }
-      }
-    }, "刷新")])
+    return h("div", [
+      h("comp", {
+        key: vm.key
+      }),
+      h(
+        "button",
+        {
+          on: {
+            click: function() {
+              vm.update();
+            }
+          }
+        },
+        "刷新"
+      )
+    ]);
   }
 });
 ```
 
 ### vue 路由跳转重渲染
 
-比如，在点击菜单切换，在父组件中会进行`$router.push({name: xxx, query: xxx})`切换子路由页面(同一个组件)，子路由页面会获取相关路由参数进行数据请求，但是vue-router会默认**同一组件不重复实例化**，所以我们有2种方法：
+比如，在点击菜单切换，在父组件中会进行`$router.push({name: xxx, query: xxx})`切换子路由页面(同一个组件)，子路由页面会获取相关路由参数进行数据请求，但是 vue-router 会默认**同一组件不重复实例化**，所以我们有 2 种方法：
 
 1、子路由`watch: $route`，然后进行相关请求逻辑
 
@@ -181,9 +188,34 @@ const app = new Vue({
 第一种方法经常用了，这里不再详叙。根据上个笔记的启发，我们可以通过如下写法轻松实现强制组件重渲染
 
 ```html
-<router-view :key="$route.fullPath"/>
+<router-view :key="$route.fullPath" />
 ```
 
 注意，组件渲染量少的话可以使用，如果组件很重，还是建议使用第一种方法
+
+## 四月
+
+### echarts 平均值 toolTip 的问题
+
+在 echarts 默认出现的 toolTip 中，可能会出现`null`等奇怪的东西出来，需要用 formatter 解决
+
+```js
+const option = {
+  tooltip: {
+    formatter(params) {
+      // marker 是小圆点
+      const { color, marker, name, value } = params;
+      if (typeof color === "string") {
+        return `${marker}${name}: ${value}`;
+      }
+      return `${name}: ${value}`;
+    }
+  }
+};
+```
+
+### vue 中 self 事件修饰符
+
+`.self` 事件修饰符实际等于 `if (event.target !== event.currentTarget) return`
 
 <ToTop/>
