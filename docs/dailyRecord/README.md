@@ -218,17 +218,17 @@ const option = {
 
 `.self` 事件修饰符实际等于 `if (event.target !== event.currentTarget) return`
 
-### 正则过滤到 "./index.js" 文件
+### 正则过滤 "./index.js" 文件
 
 `/\.\/(?!index\.)\w*\.js$/.test("./index.js")`
 
 ### form 表单中 button 的坑
 
-在`form`表单中，如果含有`button`按钮标签，点击则会重载页面，原因是因为在浏览器中，type会有默认值，w3c标准如下：
+在`form`表单中，如果含有`button`按钮标签，点击则会重载页面，原因是因为在浏览器中，`button`的`type`属性会有默认值，w3c标准如下：
 
 > 请始终为按钮规定 type 属性。Internet Explorer 的默认类型是 "button"，而其他浏览器中（包括 W3C 规范）的默认值是 "submit"。
 
-所以指定 `type` 属性为 `button`即可
+`type`属性为`submit`时会在表单中触发重载页面，所以指定 `type` 属性为 `button`即可
 
 在form表单中，应该用`input`标签来创建按钮
 
