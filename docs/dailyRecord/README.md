@@ -224,12 +224,139 @@ const option = {
 
 ### form 表单中 button 的坑
 
-在`form`表单中，如果含有`button`按钮标签，点击则会重载页面，原因是因为在浏览器中，`button`的`type`属性会有默认值，w3c标准如下：
+在`form`表单中，如果含有`button`按钮标签，点击则会重载页面，原因是因为在浏览器中，`button`的`type`属性会有默认值，w3c 标准如下：
 
 > 请始终为按钮规定 type 属性。Internet Explorer 的默认类型是 "button"，而其他浏览器中（包括 W3C 规范）的默认值是 "submit"。
 
 `type`属性为`submit`时会在表单中触发重载页面，所以指定 `type` 属性为 `button`即可
 
-在form表单中，应该用`input`标签来创建按钮
+在 form 表单中，应该用`input`标签来创建按钮
+
+### cached 函数
+
+该函数一般用于**缓存比较耗时**的函数，主要利用闭包进行实现
+
+```js
+function cached(fn) {
+  const cache = Object.create(null);
+  return function cachedFn(str) {
+    var hit = cache[str];
+    return hit || (cache[str] = fn(str));
+  };
+}
+
+const fn = cached(function(str) {
+  let i = 10000;
+  while (i--) {}
+  return str;
+});
+
+console.time("test1");
+fn(1); // 2.9ms
+console.timeEnd("test1");
+
+console.time("test2");
+fn(1); // 0.005ms // 第一次被缓存，所以非常快
+console.timeEnd("test2");
+```
+
+### yarn 升级指定包
+
+yarn upgrade-interactive --latest
+
+### 关于 vue button 组件的小坑
+
+自己封装了一个`button`组件
+
+```js
+const button = {
+  name: 'Button',
+  methods: {
+    handleClick() {
+      this.$emit('click')
+    }
+  }
+  render(h) {
+    return h('button', {
+      on: {
+        click: () => {
+          this.handleClick();
+        }
+      }
+    }, this.$slots.default)
+  }
+}
+```
+
+使用
+
+<Button @click.stop.prevent="handleClick">按钮</Button>
+
+这种情况下，是会报找不到 Cannot read property 'stopPropagation' of undefined 这种错
+
+解决方案是 把 event 对象传出去即可
+
+```js
+render(h) {
+    return h('button', {
+      on: {
+        click: (event) => {
+          this.handleClick(event);
+        }
+      }
+    }, this.$slots.default)
+  }
+```
+
+## 五月
+
+### let、const、function、class 在 switch 中作用域问题
+
+::: tip 原理
+词法声明在整个 switch 语句块中是可见的，但是它只有在运行到它定义的 case 语句时，才会进行初始化操作
+:::
+
+错误示例：
+
+```js
+switch (foo) {
+  case 1:
+    let x = 1;
+    break;
+  case 2:
+    const y = 2;
+    break;
+  case 3:
+    function f() {}
+    break;
+  default:
+    class C {}
+}
+```
+
+正确示例：
+
+```js
+switch (foo) {
+  case 1: {
+    let x = 1;
+    break;
+  }
+  case 2: {
+    const y = 2;
+    break;
+  }
+  case 3: {
+    function f() {}
+    break;
+  }
+  case 4:
+    var z = 4;
+    break;
+  default: {
+    class C {}
+  }
+}
+```
 
 <ToTop/>

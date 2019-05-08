@@ -1,5 +1,5 @@
 <template>
-  <div class="to-top" ref="toTop" @click="scrollToTop">
+  <div :class="['to-top', show && 'show']" @click="scrollToTop">
     <svg
       t="1547627942927"
       class="icon"
@@ -22,40 +22,38 @@
 </template>
 
 <script>
-import { throttle } from "./utils.js";
 const DISTANCE = 300;
+
 export default {
   name: "ToTop",
   data() {
     return {
-      onscroll: null
+      show: false
     };
   },
   mounted() {
-    this.onscroll = throttle(() => {
+    const onscroll = () => {
       const scrollTop =
         document.documentElement.scrollTop || document.body.scrollTop || 0;
       if (scrollTop >= DISTANCE) {
-        this.$refs.toTop.classList.add("show");
+        this.show = true;
       } else {
-        this.$refs.toTop.classList.remove("show");
+        this.show = false;
       }
-    }, 200);
-    window.addEventListener("scroll", this.onscroll);
+    };
+    window.addEventListener("scroll", onscroll);
+    this.$once("hook:beforeDestroy", function() {
+      window.removeEventListener("scroll", onscroll);
+    });
   },
   methods: {
     scrollToTop() {
       const scrollTop =
         document.documentElement.scrollTop || document.body.scrollTop || 0;
       if (scrollTop > 0) {
-        window.requestAnimationFrame(this.scrollToTop);
-        window.scrollTo(0, scrollTop - scrollTop / 8);
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
-  },
-  beforeDestroy() {
-    window.removeEventListener("scroll", this.onscroll);
-    this.onscroll = null;
   }
 };
 </script>

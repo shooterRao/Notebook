@@ -180,9 +180,15 @@
 
 - [引导工具](https://github.com/kamranahmedse/driver.js)
 
+- [另一款引导工具](https://github.com/shipshapecode/shepherd)
+
 - [提示 tooltip](https://github.com/chinchang/hint.css)
 
-- [文档生成工具](https://github.com/leptosia/docute)
+- [toolTip && popover](https://github.com/atomiks/tippyjs)
+
+- [docute文档生成工具](https://github.com/leptosia/docute)
+
+- [docsify文档生成工具](https://github.com/docsifyjs/docsify/)
 
 ## cli 库
 
@@ -213,6 +219,8 @@
 - [rm](https://github.com/isaacs/rimraf)
 
 - [更好的 child_process](https://github.com/sindresorhus/execa)
+
+- [执行任务列表(yarn、yarn build)](https://github.com/SamVerschueren/listr)
 
 ## 在线书籍
 
@@ -322,6 +330,8 @@
 
 - [正则表达式在线练习](https://github.com/ziishaned/learn-regex/blob/master/translations/README-cn.md)
 
+- [前端库和工具收藏集](https://github.com/PanJiaChen/awesome-bookmarks)
+
 ### 值得学习的开源库
 
 - [前端特效连载](https://github.com/comehope/front-end-daily-challenges)
@@ -373,3 +383,17 @@
 - [面试题(下)](http://www.cnblogs.com/0603ljx/p/4334228.html)
 
 - [前端面试重难点](https://github.com/yygmind/blog)
+
+## 算法
+
+- [javaScript实现的算法](https://github.com/trekhleb/javascript-algorithms)
+
+- [leetcode解题](https://github.com/azl397985856/leetcode)
+
+## 技术杂志系列
+
+- [印记中文](https://weekly.docschina.org/javascript/)
+
+- [d2-日报](https://daily.fairyever.com/)
+
+- [阿里云中台前端技术周刊](https://zhuanlan.zhihu.com/aliyun)
