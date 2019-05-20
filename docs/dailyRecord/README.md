@@ -359,4 +359,27 @@ switch (foo) {
 }
 ```
 
+### 输入框 input、change 事件的区别
+
+::: tip MDN文档
+> 与 input 事件不同，change 事件不一定会对元素值的每次更改触发
+:::
+
+也就是说，输入框`change`事件是在输入值时失去焦点或者按回车才会触发，`input`事件在输入时就会触发
+
+但是在**react**中，这两者是一样的，可以在这看看[原因](https://stackoverflow.com/questions/38256332/in-react-whats-the-difference-between-onchange-and-oninput)
+
+
+### webpack HMR 原理
+
+步骤：
+
+1. webpack 对文件系统进行 watch 打包到内存中
+2. devServer 通知浏览器端文件发生改变
+3. webpack-dev-server/client 接收到服务端消息做出响应
+4. webpack 接收到最新 hash 值验证并请求模块代码
+5. HotModuleReplacement.runtime 对模块进行热更新
+6. 业务模块调用 HMR 的 accept 方法，添加模块更新后的回调函数
+
+参考一个大佬写的[文章](https://zhuanlan.zhihu.com/p/30669007)
 <ToTop/>
