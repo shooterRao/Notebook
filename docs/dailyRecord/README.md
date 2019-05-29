@@ -382,4 +382,66 @@ switch (foo) {
 6. 业务模块调用 HMR 的 accept 方法，添加模块更新后的回调函数
 
 参考一个大佬写的[文章](https://zhuanlan.zhihu.com/p/30669007)
+
+### Function.length
+
+`Function.length` 表示函数形参的个数
+
+```js
+console.log(Function.length); // 1
+
+console.log((function() {}).length); // 0
+
+console.log((function(a, b) {}).length); // 2
+
+console.log((function(a, b = 1, c) {}).length); // 1
+
+console.log((function(a, b, c = 1) {}).length); // 2
+```
+
+### js 变量私有化
+
+利用闭包
+
+```js
+function Person () {
+  // name变量私有化
+  const name = "l";
+  
+  this.getName = function() {
+    return name;
+  }
+
+  this.setName = function(newName) {
+    name = newName
+  }
+}
+
+// test
+const p = new Person();
+console.log(p.name); // undefined
+console.log(p.getName()); // "l"
+```
+
+### vuecli3 使用 webpack-bundle-analyzer
+
+vue-config.js 加入以下几句代码：
+
+```js
+module.exports = {
+  chainWebpack: config => {
+    // npm xxx --report 这里 npm config 会识别到
+    if (process.env.npm_config_report) {
+      config
+        .plugin('webpack-bundle-analyzer')
+        .use(require('webpack-bundle-analyzer').BundleAnalyzerPlugin)
+    }
+  }
+}
+```
+
+然后 `npm run build --report` 即可
+
+注意，如果用 `yarn` 的话 `npm_config_report` 会无法识别
+
 <ToTop/>
