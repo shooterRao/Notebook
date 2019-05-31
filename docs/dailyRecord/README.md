@@ -499,6 +499,8 @@ function _asyncToGenerator(fn) {
 **使用插件后的情况**
 
 ```js
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault");
+
 var _regenerator = _interopRequireDefault(require("@babel/runtime/regenerator"));
 
 var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/asyncToGenerator"));
