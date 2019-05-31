@@ -444,4 +444,66 @@ module.exports = {
 
 注意，如果用 `yarn` 的话 `npm_config_report` 会无法识别
 
+### @babel/plugin-transform-runtime 使用
+
+这个插件有什么用？
+
+::: tip 文档原文
+> A plugin that enables the re-use of Babel's injected helper code to save on codesize.
+:::
+
+也就是可以把重复的babel-helper代码抽离出来，减少重复的代码
+
+安装
+
+```shell
+yarn add @babel/plugin-transform-runtime -D
+
+yarn add @babel/runtime
+```
+
+使用 babel.config.js
+
+```js
+module.exports = {
+  plugins: ["@babel/plugin-transform-runtime"]
+}
+```
+
+**使用插件前的代码测试**
+
+测试 `async/await`
+
+```js
+async () => {
+  await Promise.resolve();
+}
+```
+
+使用 `@babel/preset-env` 后，为了支持 `async/await`，会在代码加入下面几个函数
+
+```js
+function asyncGeneratorStep() { 
+  // 很长，省略
+}
+
+function _asyncToGenerator(fn) { 
+  // 很长，省略
+}
+
+// 开始转译 async/await ...
+```
+
+这些每个有 `async/await` 的地方，都有上面2个 helper 函数存在，这样代码会非常冗余
+
+**使用插件后的情况**
+
+```js
+var _regenerator = _interopRequireDefault(require("@babel/runtime/regenerator"));
+
+var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/asyncToGenerator"));
+```
+
+这样，可以做到重复利用 helper 函数，减少大量的重复代码
+
 <ToTop/>
