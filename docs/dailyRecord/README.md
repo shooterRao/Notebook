@@ -508,4 +508,35 @@ var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/
 
 这样，可以做到重复利用 helper 函数，减少大量的重复代码
 
+## 六月
+
+### Babel 开启ES7装饰者模式
+
+安装插件
+
+```
+yarn add @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties -D
+```
+
+增加 `plugins` 配置：
+
+```js
+module.exports = {
+  plugins: [
+    ["@babel/plugin-proposal-decorators", { legacy: true }],
+    ["@babel/plugin-proposal-class-properties", { loose: true }]
+  ]
+}
+```
+
+### new 构造函数背后发生了什么
+
+- 以构造器的 `prototype` 属性为原型，创建新对象
+- 将新对象为 `this`，调用参数传给构造器，执行
+- 如果构造器返回的是对象，则返回，否则返回第一步创建的对象
+
+### transitionend 事件细节
+
+> 当 transition 完成前移除 transition 时，比如移除 css 的 `transition-property` 属性，事件将不会被触发，还有在 transition 完成前设置 `display: none`，事件同样不会被触发
+
 <ToTop/>
