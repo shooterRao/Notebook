@@ -539,4 +539,64 @@ module.exports = {
 
 > 当 transition 完成前移除 transition 时，比如移除 css 的 `transition-property` 属性，事件将不会被触发，还有在 transition 完成前设置 `display: none`，事件同样不会被触发
 
+### css 加载会造成阻塞吗？
+
+看到一篇不错的文章，请戳 [css加载会造成阻塞吗](https://zhuanlan.zhihu.com/p/43282197)
+
+### 在 webpack 中 process.env.NODE_ENV 是如何生效的
+
+我最近在做项目时，经常会用 `process.env.NODE_ENV` 来区分生产环境和开发环境，分别进行不同的逻辑编写，虽然用起来很方便，但是不知道背后是怎么实现。抱着这份好奇心，便研究了一下。
+
+在 `node.js` 环境中，`process.env` 包含当前的环境变量，但是在 `webpack` 打包出来的代码是浏览器运行时的，跟 `node.js` 那种无关。所以在 `webpack` 环境下，是用了一个名为 `DefinePlugin` 的插件来实现 `process.env` 这些功能的
+
+关于这个插件，可以看看这里 [https://webpack.js.org/plugins/define-plugin/#usage](https://webpack.js.org/plugins/define-plugin/#usage)
+
+我当前做的项目是`vuecli3`构建出来的，看了下`webpack`配置信息，脚手架很贴心帮我们配置好了，类型这种:
+
+```js
+new DefinePlugin(
+  {
+    'process.env': {
+      NODE_ENV: '"development"',
+      BASE_URL: '""'
+    }
+  }
+),
+```
+
+所以，我们在代码中可以这么写
+
+```js
+const isDev = () => process.env.NODE_ENV === "development";
+```
+
+但是，问题又来了，比如，我在点击事件中
+
+```js
+handleClick() {
+  console.log(process.env);
+}
+```
+
+点击后，控制台打印出了上面定义的对象
+
+```js
+{
+  NODE_ENV: 'development',
+  BASE_URL: ''
+}
+```
+
+开始我以为 `process` 这变量是挂在 `window` 上了，后来验证了下并不是，但是 `process.env` 是怎么打印出来的呢？
+
+后来，我去查了下打包后的代码，发现原来是这么实现的
+
+```js
+handleClick() {
+  console.log(Object({"NODE_ENV":"development","BASE_URL": ""}));
+}
+```
+
+原来，`DefinePlugin` 插件可以在 `webpack` 编译时就把定义好的变量直接转译了，真相终于被揭晓了。 
+
 <ToTop/>
