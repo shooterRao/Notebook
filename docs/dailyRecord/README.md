@@ -545,7 +545,7 @@ module.exports = {
 
 ### 在 webpack 中 process.env.NODE_ENV 是如何生效的
 
-我最近在做项目时，经常会用 `process.env.NODE_ENV` 来区分生产环境和开发环境，分别进行不同的逻辑编写，虽然用起来很方便，但是不知道背后是怎么实现。抱着这份好奇心，便研究了一下。
+最近在做项目时，经常会用 `process.env.NODE_ENV` 来区分生产环境和开发环境，分别进行不同的逻辑编写，虽然用起来很方便，但是不知道背后是怎么实现。抱着这份好奇心，便研究了一下。
 
 在 `node.js` 环境中，`process.env` 包含当前的环境变量，但是在 `webpack` 打包出来的代码是浏览器运行时的，跟 `node.js` 那种无关。所以在 `webpack` 环境下，是用了一个名为 `DefinePlugin` 的插件来实现 `process.env` 这些功能的
 
@@ -597,6 +597,6 @@ handleClick() {
 }
 ```
 
-原来，`DefinePlugin` 插件可以在 `webpack` 编译时就把定义好的变量直接转译了，真相终于被揭晓了。 
+`DefinePlugin` 插件可以在 `webpack` 编译时就把定义好的变量直接转译了，真相终于被揭晓了。 
 
 <ToTop/>
