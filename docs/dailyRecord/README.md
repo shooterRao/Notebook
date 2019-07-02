@@ -599,4 +599,27 @@ handleClick() {
 
 `DefinePlugin` 插件可以在 `webpack` 编译时就把定义好的变量直接转译了，真相终于被揭晓了。 
 
+### 关于 npm 包版本号前缀 ~ 和 ^ 区别
+
+~ 会匹配安装最近的小版本依赖包，比如~1.2.3会匹配所有1.2.x版本，但是不包括1.3.0
+^ 会匹配安装最新的大版本依赖包，比如^1.2.3会匹配所有1.x.x的包，包括1.3.0，但是不包括2.0.0
+
+## 七月
+
+### [Falsy](https://developer.mozilla.org/zh-CN/docs/Glossary/Falsy) 和 [Truthy](https://developer.mozilla.org/zh-CN/docs/Glossary/Truthy)
+
+> **Falsy**(虚值) 是在 Boolean 上下文(条件语句或者循环语句中)中已认定可转换为 **假** 的值
+
+下面的都是 `Falsy`：
+
+- `undefined`
+- `null`
+- `NaN`
+- `0`
+- `''`
+- `false`
+- `document.all`
+
+> **Truthy**(真值) 是指的是在布尔值上下文中，转换后的值为真的值，除了上面 **Falsy** 以外的值都是真值
+
 <ToTop/>
