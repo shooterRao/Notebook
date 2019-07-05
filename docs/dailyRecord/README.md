@@ -602,6 +602,7 @@ handleClick() {
 ### 关于 npm 包版本号前缀 ~ 和 ^ 区别
 
 ~ 会匹配安装最近的小版本依赖包，比如~1.2.3会匹配所有1.2.x版本，但是不包括1.3.0
+
 ^ 会匹配安装最新的大版本依赖包，比如^1.2.3会匹配所有1.x.x的包，包括1.3.0，但是不包括2.0.0
 
 ## 七月
@@ -621,5 +622,81 @@ handleClick() {
 - `document.all`
 
 > **Truthy**(真值) 是指的是在布尔值上下文中，转换后的值为真的值，除了上面 **Falsy** 以外的值都是真值
+
+### 事件传播的三个阶段是什么？
+
+Capturing > Target > Bubbling
+
+捕获 > 目标 > 冒泡
+
+### flex 项目属性值记录
+
+- order: <integer> 默认为 0 (定义项目的排列顺序)
+- flex-grow: <number> 默认为 0 (如果存在剩余空间，也不伸展放大)
+- flex-shrink: <number> 默认为 1 (如果空间不足，该项目将被挤压缩小)
+- flex-basis: <length> | auto; (定义了在分配多余空间之前，项目占据的主轴空间，auto 为项目的本来大小)
+- flex: none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]
+
+### 关于 观察者模式和发布订阅模式
+
+```js
+// 观察者模式
+// 一种一对多的依赖，当一个对象的状态发生改变时，所以依赖它的对象都将得到通知
+
+// demo
+class Observer {
+  constructor() {
+    this.subs = []
+  }
+
+  subscribe(target, cb) {
+    target.subs.push(cb)
+  }
+
+  publish() {
+    this.subs.forEach(sub => sub())
+  }
+}
+
+const ob1 = new Observer();
+const ob2 = new Observer();
+const ob3 = new Observer();
+
+ob2.subscribe(ob1, function() {
+  console.log('ob2 添加了对 ob1 的依赖，ob1 通知了我会响应')
+})
+
+ob3.subscribe(ob1, function() {
+  console.log('ob3 添加了对 ob1 的依赖，ob1 通知了我会响应')
+})
+
+ob1.publish() // ob1 发通知了
+
+// 发布-订阅 
+// 发布-订阅 是观察者的升级版
+// 发布-订阅 拥有一个调度中心
+// 如果用 发布-订阅 ，上面 Observer 类的 subscribe 和 publish 方法都在 observer 对象(调度中心) 进行管理
+
+const observer = {
+  subs: Object.create(null),
+  subscribe(type, cb) {
+    (this.subs[type] || (this.subs[type] = [])).push(cb)
+  },
+  publish(type, ...args) {
+    (this.subs[type] || []).forEach(cb => cb.apply(null, args))
+  }
+}
+
+observer.subscribe('ob', function() {
+  console.log('ob 事件被订阅了，可以发布')
+})
+
+observer.subscribe('obob', function() {
+  console.log('obob 事件被订阅了，可以发布')
+})
+
+observer.publish('ob')
+observer.publish('obob')
+```
 
 <ToTop/>
