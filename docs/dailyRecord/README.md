@@ -699,4 +699,55 @@ observer.publish('ob')
 observer.publish('obob')
 ```
 
+### js 词法分析
+
+js 运行前会进行词法分析，主要为三个步骤：
+
+- 分析参数
+
+- 分析变量的声明
+
+- 分析函数的声明
+
+具体步骤：
+
+函数在运行的瞬间，生成一个活动对象（Active Object），简称 AO
+
+```js
+
+function t1(age) {
+
+  console.log(age); // function age(){}
+
+  var age = 27;
+
+  console.log(age); // 27
+
+  function age() {}
+
+  console.log(age); // 27
+
+}
+
+t1(3);
+
+```
+
+第一步：分析参数：
+
+函数接收形式参数，添加到 AO 的属性，并且这个时候 age 值为 undefined，即 AO.age=undefined
+
+接收实参，添加到 AO 的属性，覆盖之前的 undefined, AO.age = 3
+
+第二步：分析变量声明：如 var name;或 var name='mary'，以上代码存在 var age = 27
+
+这时候 AO 上面已经有 age 属性了，则不作任何修改，否则，否则 AO 的属性值为 undefined
+
+第三步：分析函数的声明：
+
+function age(){}把函数赋给 AO.age ,覆盖上一步分析的值
+
+AO.age = function age(){}
+
+
 <ToTop/>
