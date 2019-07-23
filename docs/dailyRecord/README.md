@@ -709,9 +709,7 @@ js 运行前会进行词法分析，主要为三个步骤：
 
 - 分析函数的声明
 
-具体步骤：
-
-函数在运行的瞬间，生成一个活动对象（Active Object），简称 AO
+尝试分析下面代码：
 
 ```js
 
@@ -733,6 +731,10 @@ t1(3);
 
 ```
 
+具体步骤：
+
+函数在运行的瞬间，生成一个活动对象（Active Object），简称 AO
+
 第一步：分析参数：
 
 函数接收形式参数，添加到 AO 的属性，并且这个时候 age 值为 undefined，即 AO.age=undefined
@@ -749,5 +751,76 @@ function age(){}把函数赋给 AO.age ,覆盖上一步分析的值
 
 AO.age = function age(){}
 
+### 关于 axios 无法请求 koa 写的接口的问题
+
+我在前端页面试着用`axios`请求用`koa`写的接口，这是前端代码：
+
+```js
+async function axiosPost() {
+  const data = {
+    name: 'shooter'
+  }
+  await axios.post('http://localhost:3000/json', data)
+}
+```
+
+这是后端接口：
+
+```js
+router.post('/json', async (ctx, next) => {
+  ctx.body = {
+    status: '200',
+    data: {}
+  }
+  await next()
+})
+```
+
+发现这时候请求报了个跨域的错误，于是，我在上面加了跨域处理
+
+```js
+router.all("/*", async (ctx, next) => {
+  // *代表允许来自所有域名请求，包括 OPTION 请求
+  ctx.set("Access-Control-Allow-Origin", "*");
+  await next();
+});
+```
+
+发现还是报了`has been blocked by CORS policy: Request header field content-type is not allowed by Access-Control-Allow-Headers in preflight response.`这个错误。仔细看下，其实是请求头`content-type`被修改了，主要原因是`axios`post请求的`content-type`默认用`application/json`，相当于`xhr.setRequestHeader('Content-type', 'application/json;');`，所以解决方案是允许修改请求头，还要加多一行代码：
+
+```js
+router.all("/*", async (ctx, next) => {
+  // *代表允许来自所有域名请求，包括 OPTION 请求
+  ctx.set("Access-Control-Allow-Origin", "*");
+  ctx.set("Access-Control-Allow-Headers", "*");
+  await next();
+});
+```
+
+这样就可以了
+
+为再验证下，手写了个原生`post`请求：
+
+```js
+function postJson() {
+  const xhr = new XMLHttpRequest()
+  const data = {
+    name: 'shooter'
+  }
+  xhr.open('post', 'http://localhost:3000/json')
+  // 不设这个，上面不设 ctx.set("Access-Control-Allow-Headers", "*");不报错
+  // 设了这个，上面就要设 Access-Control-Allow-Headers"
+  xhr.setRequestHeader('Content-type', 'application/json;')
+  xhr.send(JSON.stringify(data))
+
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4 && xhr.status === 200) {
+      console.log(xhr)
+    }
+  }
+}
+```
+
+用中间件 [koa-cors](https://github.com/evert0n/koa-cors) 也可以解决这类问题
 
 <ToTop/>
