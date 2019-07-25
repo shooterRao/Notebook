@@ -821,6 +821,25 @@ function postJson() {
 }
 ```
 
-用中间件 [koa-cors](https://github.com/evert0n/koa-cors) 也可以解决这类问题
+用中间件 [koa2-cors](https://github.com/zadzbw/koa2-cors) 也可以解决这类问题
+
+### jenkins 常用的环境变量
+
+```
+项目名称：PROJECT_NAME
+
+构建编号：BUILD_NUMBER
+
+构建状态：BUILD_STATUS
+
+触发原因：CAUSE
+
+构建地址：BUILD_URL
+```
+
+### window.performance 计算首屏时间
+
+- 首屏时间 = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.domLoading
+- 白屏时间 = window.performance.timing.domLoading - window.performance.timing.fetchStart
 
 <ToTop/>
