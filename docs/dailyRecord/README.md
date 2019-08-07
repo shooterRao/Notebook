@@ -842,4 +842,47 @@ function postJson() {
 - 首屏时间 = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.domLoading
 - 白屏时间 = window.performance.timing.domLoading - window.performance.timing.fetchStart
 
+### 打印 dom 对象具体信息
+
+```js
+const div = document.createElement('div')
+console.log([div]) // 用数组包一层
+```
+
+## 八月
+
+### 如何前后端配合自定义请求响应头字段
+
+前端如果要获取`response header`里面的值，可以通过`XMLHttpRequest`实例的`getResponseHeader()`方法进行获取，但是根据[w3c-cors标准](https://www.w3.org/TR/2014/REC-cors-20140116/)，参考**7.1.1**，可以看出不是所有的请求头字段都可以获取到，只有`simple-response-header`和设置了`Access-Control-Expose-Headers`指定字段才可以被`getResponseHeader()`获取到，关于`simple-response-header`有以下这几种：
+
+- Cache-Control
+- Content-Language
+- Content-Type
+- Expires
+- Last-Modified
+- Pragma
+
+这几种都可以获取到。
+
+但是，如果我想自定义一个字段，就需要和后端配合`Access-Control-Expose-Headers`来实现
+
+比如在`koa`中，设置对应的字段即可：
+
+```js
+router.get('/get', async (ctx, next) => {
+  ctx.set('Access-Control-Expose-Headers', 'token')
+  ctx.set('token', '123456')
+  ctx.body = 'success'
+  await next()
+});
+```
+
+使用`axios`请求就能在返回的对象`headers`字段中获取：
+
+```js
+axios.get('/get').then(res => {
+  console.log(res.headers.token); // '123456'
+})
+```
+
 <ToTop/>
