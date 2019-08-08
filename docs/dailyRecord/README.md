@@ -885,4 +885,54 @@ axios.get('/get').then(res => {
 })
 ```
 
+### img在外层div使用 line- height 居中无效？
+
+解决方案1：
+
+`img`元素使用 `vertical-align: middle`
+
+```html
+<div>
+  <img src="xxx"/>
+</div>
+```
+
+```css
+div {
+  line-height: 300px;
+}
+div img {
+  vertical-align: middle;
+}
+```
+
+解决方案2：
+
+不用`line-height`居中，直接用`flex + margin`
+
+```css
+div {
+  height: 300px;
+  display: flex;
+}
+div img {
+  margin: auto 0;
+}
+```
+
+### scss @extend
+
+scss 提供的`@extend`函数非常方便，甚至伪类都可以被继承:
+
+```scss
+.item {
+  &:hover {
+    // ...
+  }
+  &.active {
+    @extend :hover; // 这样 .item.active 便可继承 .item:hover的样式了
+  }
+}
+```
+
 <ToTop/>
