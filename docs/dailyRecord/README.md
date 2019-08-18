@@ -543,6 +543,13 @@ module.exports = {
 
 看到一篇不错的文章，请戳 [css加载会造成阻塞吗](https://zhuanlan.zhihu.com/p/43282197)
 
+结论：
+
+- css加载不会阻塞DOM树的解析
+- css加载会阻塞DOM树的渲染
+- css加载会阻塞后面js语句的执行
+
+
 ### 在 webpack 中 process.env.NODE_ENV 是如何生效的
 
 最近在做项目时，经常会用 `process.env.NODE_ENV` 来区分生产环境和开发环境，分别进行不同的逻辑编写，虽然用起来很方便，但是不知道背后是怎么实现。抱着这份好奇心，便研究了一下。
@@ -930,8 +937,48 @@ scss 提供的`@extend`函数非常方便，甚至伪类都可以被继承:
     // ...
   }
   &.active {
-    @extend :hover; // 这样 .item.active 便可继承 .item:hover的样式了
+    @extend :hover; // 这样 .item.active 便可继承 .item:hover 的样式了
   }
+}
+```
+
+### 桥接 vue 组件api的方式
+
+使用 `v-bind` 属性和 `v-on` 事件即可实现：
+
+```vue
+<template>
+  <AppList v-bind="$props" v-on="$listeners"> <!-- ... --> </AppList>
+</template>
+
+<script>
+  import AppList from "./AppList";
+
+  export default {
+    name: 'SortableList',
+    props: AppList.props,
+    components: {
+      AppList
+    }
+  };
+</script>
+```
+
+这样`SortableList`组件的属性和事件就和`AppList`组件一致了
+
+### 获取最外层节点的 offsetLeft
+
+```js
+function getElementLeft(element) {
+　let actualLeft = element.offsetLeft;
+　let current = element.offsetParent;
+
+　while (current !== null){
+　　actualLeft += current.offsetLeft;
+　　current = current.offsetParent;
+　}
+
+　return actualLeft;
 }
 ```
 
