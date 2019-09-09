@@ -535,6 +535,16 @@ module.exports = {
 - 将新对象为 `this`，调用参数传给构造器，执行
 - 如果构造器返回的是对象，则返回，否则返回第一步创建的对象
 
+如何实现一个`new`函数呢？
+
+```js
+function _new(fn, ...args) {
+  const obj = Object.create(fn.prototype)
+  const res = fn.apply(obj, args)
+  return res instanceof Object ? res : obj
+}
+```
+
 ### transitionend 事件细节
 
 > 当 transition 完成前移除 transition 时，比如移除 css 的 `transition-property` 属性，事件将不会被触发，还有在 transition 完成前设置 `display: none`，事件同样不会被触发
@@ -979,6 +989,101 @@ function getElementLeft(element) {
 　}
 
 　return actualLeft;
+}
+```
+
+### css 多行文本溢出效果
+
+- 单行：
+
+```css
+overflow: hidden;
+text-overflow: ellipsis;
+white-space: nowrap;
+```
+
+- 多行：
+
+仅兼容webkit内核的浏览器
+
+```css
+display: -webkit-box;
+-webkit-box-orient: vertical;
+-webkit-line-clamp: 3; // 行数
+overflow: hidden;
+```
+
+- 兼容：
+
+```css
+p{position: relative; line-height: 20px; max-height: 40px;overflow: hidden;}
+p::after{content: "..."; position: absolute; bottom: 0; right: 0; padding-left: 40px;
+background: -webkit-linear-gradient(left, transparent, #fff 55%);
+background: -o-linear-gradient(right, transparent, #fff 55%);
+background: -moz-linear-gradient(right, transparent, #fff 55%);
+background: linear-gradient(to right, transparent, #fff 55%);
+}
+```
+
+### http 状态码
+
+状态代码有三位数字组成，第一个数字定义了响应的类别，共分五种类别:
+
+- 1xx：指示信息--表示请求已接收，继续处理
+- 2xx：成功--表示请求已被成功接收、理解、接受
+- 3xx：重定向--要完成请求必须进行更进一步的操作
+- 4xx：客户端错误--请求有语法错误或请求无法实现
+- 5xx：服务器端错误--服务器未能实现合法的请求
+
+## 九月
+
+### Vue.extend
+
+根据文档解释：
+
+> 使用基础 Vue 构造器，创建一个“子类”。参数是一个包含组件选项的对象。
+
+其实就是返回一个`VueComponent`函数，和调用`Vue.component`(选项不为`null`前提)返回的一样：
+
+```js
+var Sub = function VueComponent (options) {
+  this._init(options);
+};
+return Sub;
+```
+
+使用的话，可以这样：
+
+```js
+const Ctor = Vue.extend({
+  data() {
+    return {}
+  },
+  template: `<div>comp</div>`
+}) 
+
+// 这里还是可以传入组件选项的对象
+// 实例化一个组件
+const comp = new Ctor({
+  data: {}
+})
+
+// 使用
+comp.$mount();
+document.body.appendChild(comp.$el);
+```
+
+## :empty 伪类
+
+`:empty`选择器选择每个没有任何子级的元素，包括文本节点
+
+```html
+<p></p>
+```
+
+```css
+p:empty {
+  color: orange;
 }
 ```
 

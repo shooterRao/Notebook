@@ -392,6 +392,8 @@
 
 - [leetcode解题](https://github.com/azl397985856/leetcode)
 
+- [awesome-coding-js](https://github.com/ConardLi/awesome-coding-js)
+
 ## 技术杂志系列
 
 - [印记中文](https://weekly.docschina.org/javascript/)
