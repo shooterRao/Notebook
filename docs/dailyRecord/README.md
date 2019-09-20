@@ -72,7 +72,7 @@ watch() {
 ### 滚动进度条核心代码
 
 ::: tip 原理
-视口滚动的距离 / 文档总高度 - 视口高度
+视口滚动的距离 / (文档总高度 - 视口高度)
 :::
 
 ```js
@@ -80,7 +80,8 @@ watch() {
 ($(window).scrollTop() / ($(document).height() - $(window).height())) * 100;
 
 // js
-(window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
+const { scrollTop, scrollHeight, clientHeight } = document.scrollingElement;
+(scrollTop / (scrollHeight - clientHeight)) * 100;
 ```
 
 ## 二月
@@ -1073,18 +1074,64 @@ comp.$mount();
 document.body.appendChild(comp.$el);
 ```
 
-## :empty 伪类
+### :empty 伪类
 
 `:empty`选择器选择每个没有任何子级的元素，包括文本节点
 
 ```html
-<p></p>
+<div></div>
 ```
 
 ```css
-p:empty {
-  color: orange;
+div:empty {
+  height: 100px;
+  width: 100px;
 }
+```
+
+### 判断浏览器事件侦听器是否兼容`passive`
+
+```js
+var supportsPassive = false;
+
+try {
+  // 通过 getter 判断
+  var opts = Object.defineProperty({}, 'passive', { get: function(){ supportsPassive = true }});
+  // 绑定一个事件，触发上面的 getter，如果异常，说明浏览器不支持
+  document.addEventListener('test', function() {}, opts);
+} catch (error) {}
+
+elem.addEventListener('touchstart', fn, supportsPassive ? { passive: true } : false);
+```
+
+### 逗号操作符
+
+逗号操作符用得很少，偏冷门，但是面试可能会被问到，所以在此记录下
+
+> 逗号操作符，对它的每个操作数求值（从左到右），并返回最后一个操作数的值
+
+```js
+var x = 1;
+
+x = (x++, x); // x > 2
+
+var arr = [1,2,3,4]
+
+arr[4,1,3,2] // arr[2] > 3
+
+```
+
+### 判断浏览器是否已滚动到底部
+
+```js
+window.addEventListener('scroll', function() {
+  const { scrollTop, scrollHeight, clientHeight } = document.scrollingElement;
+
+  // 滚动高度 + 视口高度 >= 文档总高度
+  if (scrollTop + clientHeight >= scrollHeight) {
+    console.log('到达底部了~')
+  }
+})
 ```
 
 <ToTop/>
