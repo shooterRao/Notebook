@@ -1134,4 +1134,137 @@ window.addEventListener('scroll', function() {
 })
 ```
 
+### 为什么vue组件选项中的data必须是个函数？
+
+注册组件的本质实际上是建立一个组件构造器的引用，在使用时才会去实例化。也就是生成一个function。
+
+下面就关于原型的知识了
+
+​组件data属性实际上在挂载到 构造器function.prototype上的，比如
+
+```js
+const Comp = function () {}
+
+Comp.prototype.data = ...
+```
+
+​如果该原型下的data属性值为**对象**
+
+```js
+// 创建构造器Comp
+Vue.component('Comp', {
+  data: {
+    a: 1,
+    b: 2
+  }
+})
+
+const Comp = function ({ data }) {
+  // 类似于这种
+  this.data = this.data;
+}
+
+// 简化后的代码实际上是这个
+// 取到注册对象 data 属性并挂载到构造器原型上
+Comp.prototype.data = {
+  a: 1,
+  b: 2
+}
+
+// 如果多次实例化
+const compA = new Comp();
+const compB = new Comp();
+
+compA.data === compB.data; // true 两者共同指向同一地址
+compA.data.c = 3;
+console.log(compB.data.c); // 3 (这样就容易引起麻烦)
+
+```
+
+为了避免引发上述的麻烦，通过函数独立作用域便可解决
+
+```js
+// 创建构造器Comp
+Vue.component('Comp', {
+  data() {
+    // 每次调用都返回一个新的对象
+    return {
+      a: 1,
+    	b: 2
+    }
+  }
+})
+
+const Comp = function ({ data }) {
+  // 调用原型 data 函数，每个组件实例都有各自的数据副本，避免数据互相影响
+  this.data = this.data();
+}
+
+Comp.prototype.data = function () {
+  a: 1,
+  b: 2
+}
+
+const compA = new Comp();
+const compB = new Comp();
+
+compA.data === compB.data; // false
+
+```
+
+## 十月
+
+### tree 组件半选框的核心逻辑
+
+```js
+function indeterminate(item) {
+  // 递归获取该节点下的所有子节点
+  const leafNodes = this.getLeafNodes(item);
+  return {
+    // indet 为半选控制
+    // 当子节点非全部选中时和至少有一个子节点被选中，才会出现半选
+    indet:
+      !leafNodes.every(n => n.selected) && leafNodes.some(n => n.selected),
+      value: leafNodes.every(n => n.selected)
+  };
+}
+```
+
+### Vue.nextTick 渲染时机
+
+先来看一段代码：
+
+```js
+const app = new Vue({
+  data: {
+    a: 1
+  }
+})
+
+// setTimeout 模拟请求，都是task
+setTimeout(() => {
+  app.a = 2 // 这里也是执行 nextTick
+
+  console.log(app.$el.innerHTML) // 1
+  Vue.nextTick(() => {
+    console.log(app.$el.innerHTML) // 2
+    alert('卡住线程，阻塞渲染') // 可以看到视图上还是 1
+  })
+},0)
+```
+
+`nextTick`本质是**microtask**，浏览器渲染时序是
+
+> 执行当前 macrotask -> 清空 microtask -> render layout
+
+这也是**eventloop**的基本特征
+
+vue文档上说，只有在nextTick回调中才能拿到更新后的值，为什么这么做？实际上是用于优化减少dom的操作
+
+你会发现，上述代码中，根据注释，在同个事件循环中(上面两个`nextTick`隶属于同个事件循环)，为什么在后面那个`nextTick`中能拿到最新的值呢，毕竟视图并没有更新。
+
+> js获取视图新的节点值不一定要等到UI更新后才能拿到
+
+通过添加`alert`阻塞视图渲染，印证了这个原理，在视图没更新的情况下，我们也能拿到dom节点的最新值。
+
 <ToTop/>
