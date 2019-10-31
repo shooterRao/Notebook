@@ -1333,4 +1333,33 @@ const a = 123
 
 如果你本人是拒绝分号党，那么强烈建议你用`eslint`帮你预警！不然还是回归到分号党吧！
 
+### 如何劫持ajax请求？
+
+本质是劫持`XMLHttpRequest`实例的`send`请求，所以我们可以重写这个方法进行劫持：
+
+```js
+class XML extends XMLHttpRequest {
+  constructor() {
+    super()
+  }
+
+  send(...args) {
+    console.log('hhh，被我发现了吧');
+    super.send(...args); // 调用父类方法可以发送请求
+  }
+}
+
+XMLHttpRequest = XML
+
+axios.get('xxx') // 可以看到上面的 console.log()
+```
+
+### 如何判断该函数是不是原生函数
+
+```js
+function isNative (Ctor) {
+  return typeof Ctor === 'function' && /native code/.test(Ctor.toString())
+}
+```
+
 <ToTop/>
