@@ -1362,4 +1362,25 @@ function isNative (Ctor) {
 }
 ```
 
+## 十一月
+
+### text-overflow: ellipsis 不生效的原因？
+
+必须是块级元素，`display: flex` 影响生效的原因之一，
+
+根据`MDN文档`，
+
+> 这个属性只对那些在块级元素溢出的内容有效，但是必须要与块级元素内联(inline)方向一致（举个反例：内容在盒子的下方溢出。此时就不会生效）。文本可能在以下情况下溢出：当其因为某种原因而无法换行(例子：设置了"white-space:nowrap")，或者一个单词因为太长而不能合理地被安置(fit)。
+
+参考[这里](https://developer.mozilla.org/zh-CN/docs/Web/CSS/text-overflow)
+
+### 把数组某个值快速置后的方法
+
+```js
+const arr = [1,2,3];
+const fn = (arr, index) => arr.push(arr.splice(index, 1)[0]);
+
+fn(arr, 1); // arr => [1,3,2];
+```
+
 <ToTop/>
