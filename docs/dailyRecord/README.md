@@ -1383,4 +1383,29 @@ const fn = (arr, index) => arr.push(arr.splice(index, 1)[0]);
 fn(arr, 1); // arr => [1,3,2];
 ```
 
+### 为什么 [] == ![] 为 true ?
+
+`![]`实际为`false`，所以比较的是 `[] == false`，为什么 `[] == false` 为 `true`？
+
+== 会触发隐式转换，有个准则，看一个表格：
+
+| 类型(x) | 类型(y) | 结果 |
+| ------- | -------   | ---- |
+| null | undefined | true |
+| undefined | null | true |
+| 数字 | 字符串 | x == toNumber(y) |
+| 字符串 | 数字 | toNumber(x) == y |
+| 布尔值 | 任何类型 | toNumber(x) == y |
+| 任何类型 | 布尔值 | x == toNumber(y) |
+| 字符串或数字 | 对象 | x == toPrimitive(y) |
+| 对象 | 字符串或数字 | toPrimitive(x) == y |
+
+来看下 `[] == false` 的判断流程：
+
+1、根据表格，**任何类型与布尔值**比较，先让`false`转成`number`，Number(fasle) => 0
+2、来到了`[] == 0`比较，即**对象和数字比较**，toPrimitive([]) => [].valueOf -> 返回的是原始类型 ？[].valueOf : [].valueOf.toString()
+3、[].valueOf.toString() -> ""
+4、来到了`"" == 0`比较，即**字符串和数字比较**，Number("") -> 0
+5、所以，`0 == 0` 还不是 true 嘛
+
 <ToTop/>
