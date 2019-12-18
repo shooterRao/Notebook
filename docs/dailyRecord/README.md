@@ -1403,9 +1403,105 @@ fn(arr, 1); // arr => [1,3,2];
 来看下 `[] == false` 的判断流程：
 
 1、根据表格，**任何类型与布尔值**比较，先让`false`转成`number`，Number(fasle) => 0
+
 2、来到了`[] == 0`比较，即**对象和数字比较**，toPrimitive([]) => [].valueOf -> 返回的是原始类型 ？[].valueOf : [].valueOf.toString()
+
 3、[].valueOf.toString() -> ""
+
 4、来到了`"" == 0`比较，即**字符串和数字比较**，Number("") -> 0
+
 5、所以，`0 == 0` 还不是 true 嘛
+
+### vue2.x 响应式实现观察者模式精简版
+
+```js
+let target = null; // 指向 watcher
+
+const dep = {
+  subs: [], // 收集依赖
+  notify() {
+    this.subs.forEach(sub => {
+      sub.update();
+    });
+  },
+  addSubs(watcher) {
+    this.subs.push(watcher);
+  },
+  depend() {
+    if (target) {
+      target.addDep(this);
+    }
+  }
+};
+
+// watcher 分为三种
+// render-watcher、computed-watcher、user-watcher
+const watcher = {
+  deps: [],
+  update() {
+    console.log('updated');
+  },
+  addDep(dep) {
+    this.deps.push(dep);
+    dep.addSubs(this);
+  }
+};
+
+target = watcher;
+dep.depend(); // 收集依赖
+dep.notify(); // 派发更新
+```
+
+## 十二月
+
+### vue jsx @click.native 写法
+
+写法一：
+
+```js
+<comp vOn:click_native={this.xxx}></comp>
+```
+
+写法二：
+
+```js
+<comp nativeOnClick={this.xxx}></comp>
+```
+
+### vue-router3.1 push 相同路由报错的解决方法
+
+```js
+const originalPush = VueRouter.prototype.push;
+VueRouter.prototype.push = function push(location, onResolve, onReject) {
+  if (onResolve || onReject)
+    return originalPush.call(this, location, onResolve, onReject);
+  return originalPush.call(this, location).catch(err => err);
+};
+```
+
+### 关于ajax发送cookie到服务端发生跨域的问题
+
+如果前端要发送cookie到服务端，需要把xhr的**withCredentials**设置为true：
+
+```js
+const xhr = new XMLHttpRequest();
+xhr.open('GET', 'http://example.com/', true);
+xhr.withCredentials = true;
+xhr.send(null);
+```
+
+服务端需要把响应头的的**Access-Control-Allow-Credentials**设置为true，比如`koa2-cors`可以这么设：
+
+```js
+app.use(cors({
+  credentials: true
+}));
+```
+
+这种可以在同源中实现cookie传递，如果非同源，会有跨域问题。如何解决？
+
+> Access-Control-Allow-Origin 不能设为星号，必须指定明确的、与请求网页一致的域名。
+
+平常后端解决跨域一般都是把`Access-Control-Allow-Origin`设为`*`，但是要传cookie的话，就需要后端动态读取请求域名然后动态设置了。
 
 <ToTop/>
