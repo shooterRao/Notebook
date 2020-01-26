@@ -1504,4 +1504,40 @@ app.use(cors({
 
 平常后端解决跨域一般都是把`Access-Control-Allow-Origin`设为`*`，但是要传cookie的话，就需要后端动态读取请求域名然后动态设置了。
 
+### encodeURI() 和 encodeURIComponent() 的区别
+
+- encodeURI
+
+> encodeURI 函数可把字符串作为 URI 进行编码
+
+encodeURI() 函数不会对 ASCII 字母和数字进行编码，也不会对这些 ASCII 标点符号进行编码: - _ . ! ~ * ' ( ) 。
+
+该方法的目的是对 URI 进行完整的编码，因此对以下在 URI 中具有特殊含义的 ASCII 标点符号，encodeURI() 函数是不会进行转义的：**;/?:@&=+$,#**
+
+如果 URI 组件中含有分隔符，比如 ? 和 #，则应当使用 encodeURIComponent() 方法分别对各组件进行编码。
+
+- encodeURIComponent
+
+> encodeURIComponent() 函数可把字符串作为 URI 组件进行编码
+
+该方法不会对 ASCII 字母和数字进行编码，也不会对这些 ASCII 标点符号进行编码： - _ . ! ~ * ' ( ) 。
+
+其他字符（比如 ：;/?:@&=+$,# 这些用于分隔 URI 组件的标点符号），都是由一个或多个十六进制的转义序列替换的。
+
+摘自 [w3c](https://www.w3school.com.cn/jsref/jsref_encodeURIComponent.asp) 里的一段话：
+
+> 请注意 encodeURIComponent() 函数 与 encodeURI() 函数的区别之处，前者假定它的参数是 URI 的一部分（比如协议、主机名、路径或查询字符串）。因此 encodeURIComponent() 函数将转义用于分隔 URI 各个部分的标点符号。
+
+比如：
+
+```js
+const uri = 'http://shooterblog.site/2019/07/09/【Vue源码学习系列】解读数据响应式实现原理/'
+
+encodeURI(uri) // http://shooterblog.site/2019/07/09/%E3%80%90Vue%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97%E3%80%91%E8%A7%A3%E8%AF%BB%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/
+
+encodeURIComponent(uri) // http%3A%2F%2Fshooterblog.site%2F2019%2F07%2F09%2F%E3%80%90Vue%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97%E3%80%91%E8%A7%A3%E8%AF%BB%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%2F
+```
+
+encodeURI() 和 encodeURIComponent() 对应的解码方法是 decodeURI() 和 decodeURIComponent()
+
 <ToTop/>
