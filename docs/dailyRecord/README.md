@@ -539,10 +539,10 @@ module.exports = {
 如何实现一个`new`函数呢？
 
 ```js
-function _new(fn, ...args) {
-  const obj = Object.create(fn.prototype)
-  const res = fn.apply(obj, args)
-  return res instanceof Object ? res : obj
+function _new(Constructor, ...args) {
+  const obj = Object.create(Constructor.prototype);
+  const res = Constructor.apply(obj, args);
+  return res instanceof Object ? res : obj;
 }
 ```
 
@@ -1404,9 +1404,9 @@ fn(arr, 1); // arr => [1,3,2];
 
 1、根据表格，**任何类型与布尔值**比较，先让`false`转成`number`，Number(fasle) => 0
 
-2、来到了`[] == 0`比较，即**对象和数字比较**，toPrimitive([]) => [].valueOf -> 返回的是原始类型 ？[].valueOf : [].valueOf.toString()
+2、来到了`[] == 0`比较，即**对象和数字比较**，toPrimitive([]) => [].valueOf() -> 返回的是原始类型 ？[].valueOf() : [].valueOf().toString()
 
-3、[].valueOf.toString() -> ""
+3、[].valueOf().toString() -> ""
 
 4、来到了`"" == 0`比较，即**字符串和数字比较**，Number("") -> 0
 
