@@ -118,6 +118,34 @@ render (h) {
 />
 ```
 
+### vuecli3 开启 gzip 配置
+
+安装 webpack 插件
+
+```
+yarn add compression-webpack-plugin -D
+```
+
+配置 vue.config.js
+
+```js
+module.exports = {
+  chainWebpack: config => { 
+    if (process.env.NODE_ENV === "production") {
+      config.plugin("CompressionPlugin").use(CompressionPlugin, [
+        {
+          filename: "[path].gz[query]",
+          algorithm: "gzip",
+          test: new RegExp("\.(js|css)$"),
+          threshold: 10240,
+          minRatio: 0.8
+        }
+      ]);
+    }
+  }
+}
+```
+
 ## 三月
 
 ### vue v-model 细节
