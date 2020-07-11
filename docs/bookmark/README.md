@@ -192,6 +192,8 @@
 
 - [docsify文档生成工具](https://github.com/docsifyjs/docsify/)
 
+- [把元素变成可拖动的，可调整大小的，可伸缩的，可旋转的库](https://github.com/daybrush/moveable)
+
 ## cli 库
 
 - [参数解析](https://github.com/tj/commander.js)

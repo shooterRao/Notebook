@@ -32,6 +32,8 @@
 
 - [更好的child_process](https://github.com/sindresorhus/execa)
 
+- [debug](https://github.com/visionmedia/debug)
+
 ### 库
 
 - [crypto加密](https://github.com/brix/crypto-js)
