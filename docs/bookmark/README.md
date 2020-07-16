@@ -226,6 +226,12 @@
 
 - [执行任务列表(yarn、yarn build)](https://github.com/SamVerschueren/listr)
 
+- [Sexy fonts for the console](https://github.com/dominikwilkowski/cfonts)
+
+- [监听文件改动](https://github.com/paulmillr/chokidar)
+
+- [在方框中显示信息](https://github.com/sindresorhus/boxen#readme)
+
 ## 在线书籍
 
 - [Understanding ES6](https://oshotokill.gitbooks.io/understandinges6-simplified-chinese/content/)

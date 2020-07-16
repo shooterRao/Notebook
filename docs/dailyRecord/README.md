@@ -1038,7 +1038,7 @@ white-space: nowrap;
 ```css
 display: -webkit-box;
 -webkit-box-orient: vertical;
--webkit-line-clamp: 3; // 行数
+-webkit-line-clamp: 3;
 overflow: hidden;
 ```
 
