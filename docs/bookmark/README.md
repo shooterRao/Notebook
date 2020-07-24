@@ -232,6 +232,8 @@
 
 - [在方框中显示信息](https://github.com/sindresorhus/boxen#readme)
 
+- [渲染table](https://github.com/Automattic/cli-table)
+
 ## 在线书籍
 
 - [Understanding ES6](https://oshotokill.gitbooks.io/understandinges6-simplified-chinese/content/)
