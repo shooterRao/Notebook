@@ -234,6 +234,8 @@
 
 - [渲染table](https://github.com/Automattic/cli-table)
 
+- [优雅的log](https://github.com/klaussinani/signale)
+
 ## 在线书籍
 
 - [Understanding ES6](https://oshotokill.gitbooks.io/understandinges6-simplified-chinese/content/)
