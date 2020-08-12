@@ -1,1571 +1,705 @@
-# 2019
+# 2020
 
 ## 一月
 
-### 利用 Coverage 检测可以懒加载的 modules
+### 运行时设置 webpack 的 publicPath
 
-1、打开 devTools，按`Ctrl+shift+p`，mac(`cmd+shift+p`)，输入`Coverage`，选`Drawer: Coverage`
+`publicPath` 是 webpack 提供的配置公共路径的地方，可以通过它来指定应用程序中所有资源的基础路径，如果我们想要运行时设置`publicPath`，可以通过动态设置`__webpack_public_path__`来实现
 
-2、reload
-
-3、可以看到哪些 modules 可以用`import()`懒加载了
-
-### nginx vue history 爬坑
-
-按照官方`nginx`的参考配置：
-
-```bash
-location / {
-  try_files $uri $uri/ /index.html;
-}
-```
-
-如果是项目在根目录倒没啥问题，但如果项目在 xxx 路径下，比如在`http://ip/vue/`路径下，点击跳转到路由`http://ip/vue/about`下是 ok 的，但是一刷新页面，你会发现就不好使了。原因很简单，就在上面的配置中:
-
-`try_files $uri $uri/ /index.html` => `http://ip/vue/about/index.html`
-
-所以，这种情况正确的操作是：
-
-```bash
-location /vue/ {
-  try_files $uri $uri/ /vue/index.html;# 全部跳回到vue/index.html页面中
-}
-```
-
-注意， `/vue/`实际上你上面配的`root`下的 vue 文件夹，比如你的`root`是`/app`，`location /vue/`即为 `location /app/vue/`
-
-### iview menu 组件无法高亮展开问题
-
-在 iview Menu 组件中，如果数据是异步请求的，动态设置`activeName`、`openNames`会不生效，原因是 activeName、或者 openNames 这些优先告诉 Menu 组件了，挂载时(menuData 还没获取到)就已经确定好这些状态，就算是 menuData 获取到了，也不会触发 setter 进行页面状态更新
-
-**解决方案**
-
-方案 1：
+在`app.js`中：
 
 ```js
-// 利用watch
-watch() {
-  // 异步获取数据更新时，需要进行高亮、展开节点更新
-  menuData() {
-    this.$nextTick(() => {
-      this.$refs.menu.updateActiveName();
-      this.$refs.menu.updateOpened();
-    });
-  },
-  activeName(value) {
-    this.$nextTick(() => {
-      this.$refs.menu.updateActiveName();
-    });
-  },
-  openNames(value) {
-    this.$nextTick(() => {
-      this.$refs.menu.updateOpened();
-    });
-  }
-}
+__webpack_public_path__ = '/public/';
+
+// 打包后对应的变量名
+__webpack_require__.p = '/public/';
 ```
 
-方案 2：
-
-`<Menu v-if="menuData.length !== 0"/>`
-
-### 滚动进度条核心代码
-
-::: tip 原理
-视口滚动的距离 / (文档总高度 - 视口高度)
-:::
-
-```js
-// jq
-($(window).scrollTop() / ($(document).height() - $(window).height())) * 100;
-
-// js
-const { scrollTop, scrollHeight, clientHeight } = document.scrollingElement;
-(scrollTop / (scrollHeight - clientHeight)) * 100;
-```
+在打包后，会有一个`__webpack_require__.p`变量来保存最新设置的值
 
 ## 二月
 
-### vue jsx 使用全局组件
+### 大文件上传切片方法
 
-在 vue jsx 中只能使用`(kebab-case)`的全局组件，不能使用`(PascalCase)`，如果要使用`(PascalCase)`，可以这么写
-
-```js
-render (h) {
-  const { Tabs, TabPane } = this.$options.components;
-  return (
-    <Tabs>
-      <TabPane></TabPane>
-    </Tabs>
-  )
-}
-```
-
-### tomcat 开启 gzip 配置
-
-在`conf/server.xml`文件中进行配置
-
-```xml
-<Connector  port="8088"
-            protocol="HTTP/1.1"
-            connectionTimeout="20000"
-            redirectPort="8443" URIEncoding="utf-8"
-	          useSendfile="false"
-            compression="on"
-            compressionMinSize="50"
-            noCompressionUserAgents="gozilla,traviata"
-            compressableMimeType="text/html,text/xml,text/javascript,application/x-javascript,application/javascript,text/css,text/plain"
-/>
-```
-
-### vuecli3 开启 gzip 配置
-
-安装 webpack 插件
-
-```
-yarn add compression-webpack-plugin -D
-```
-
-配置 vue.config.js
+前端上传打文件的时候，一般都会用切片上传的方式，核心主要是用`Blob.prototype.slice`进行切片，这个方法可以返回一个新的切片`Blob`对象，前端处理这么写：
 
 ```js
-module.exports = {
-  chainWebpack: config => { 
-    if (process.env.NODE_ENV === "production") {
-      config.plugin("CompressionPlugin").use(CompressionPlugin, [
-        {
-          filename: "[path].gz[query]",
-          algorithm: "gzip",
-          test: new RegExp("\.(js|css)$"),
-          threshold: 10240,
-          minRatio: 0.8
-        }
-      ]);
-    }
+function createFileChunk(file, size = 1 * 1024 * 1024) {
+  const fileChunkList = [];
+  let cur = 0;
+  while (cur < file.size) {
+    fileChunkList.push({
+      // 利用 Blob.prototype.slice 切片
+      file: file.slice(cur, cur + size),
+    });
+    cur += size;
   }
+  return fileChunkList;
 }
+```
+
+### JavaScript 判断整型的方法
+
+es5：
+
+```js
+function isInteger(x) {
+  return parseInt(x, 10) === x;
+}
+```
+
+es6：
+
+```js
+function isInteger(x) {
+  return Number.isInteger(x);
+}
+```
+
+### 如何在 html 上实现重定向？
+
+使用`meta content url`方法，`http-equiv="refresh"`定义文档自动刷新的时间间隔(多少秒)，设置在`content`里`url`的前面
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="refresh" content="0;url=xxx" />
+  </head>
+  <body></body>
+</html>
 ```
 
 ## 三月
 
-### vue v-model 细节
+### docker nginx 容器如何访问宿主机
 
-`v-model` 在内部使用不同的属性为不同的输入元素并抛出不同的事件：
+在用 docker nginx 进行反向代理本地一些服务的时候，默认用 localhost 是直接访问容器的本身，所以要在 nginx 的 conf 文件中配置指定的 ip 地址，但是网络切换的话，ip 会变，所以只能修改配置文件进行重启这个容器，其实不方便，那么有什么办法可以省去这步骤呢？
 
-- text 和 textarea 元素使用 value 属性和 input 事件
-- checkbox 和 radio 使用 checked 属性和 change 事件
-- select 字段将 value 作为 prop 并将 change 作为事件
+- 在 mac desktop 环境中，可以用`host.docker.internal`来获取到宿主机的 ip 地址
+- 在 linux 环境中，可以`--network host`模式启动容器
 
-### js 找出数组最大最小值
+在 mac 环境中，nginx 的 conf 文件中可以这么写了：
+
+```
+location / {
+  proxy_pass http://host.docker.internal:5505/;
+}
+```
+
+### vscode vue 文件中无法识别"@/xxx"文件路径
+
+使用 `jsconfig.json` 解决
+
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "g6/*": ["./src/g6/*"]
+    },
+    "target": "ES6",
+    "module": "commonjs",
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}
+```
+
+### 使用对象填充数组
 
 ```js
-const getMaxNumber = array => Math.max(...array);
-const getMinNumber = array => Math.min(...array);
+const length = 3;
+const resultA = Array.from({ length }, () => ({}));
+const resultB = Array(length).fill({});
+
+resultA; // => [{}, {}, {}]
+resultB; // => [{}, {}, {}]
+
+resultA[0] === resultA[1]; // => false
+resultB[0] === resultB[1]; // => true
 ```
 
-### vue 强迫重新渲染
-
-```js
-Vue.component("comp", {
-  created() {
-    console.log("被重新渲染了");
-  },
-  render(h) {
-    return h("span", "组件");
-  }
-});
-const app = new Vue({
-  el: "#app",
-  data: {
-    key: 0
-  },
-  methods: {
-    update() {
-      this.key++;
-    }
-  },
-  render(h) {
-    const vm = this;
-    return h("div", [
-      h("comp", {
-        key: vm.key
-      }),
-      h(
-        "button",
-        {
-          on: {
-            click: function() {
-              vm.update();
-            }
-          }
-        },
-        "刷新"
-      )
-    ]);
-  }
-});
-```
-
-### vue 路由跳转重渲染
-
-比如，在点击菜单切换，在父组件中会进行`$router.push({name: xxx, query: xxx})`切换子路由页面(同一个组件)，子路由页面会获取相关路由参数进行数据请求，但是 vue-router 会默认**同一组件不重复实例化**，所以我们有 2 种方法：
-
-1、子路由`watch: $route`，然后进行相关请求逻辑
-
-2、每次跳转路由(即使是同一个)都强制重刷新
-
-第一种方法经常用了，这里不再详叙。根据上个笔记的启发，我们可以通过如下写法轻松实现强制组件重渲染
-
-```html
-<router-view :key="$route.fullPath" />
-```
-
-注意，组件渲染量少的话可以使用，如果组件很重，还是建议使用第一种方法
+由此可见，用`Array.from`比`fill`方法更好，可以避免由于相同对象引起的一些麻烦。
 
 ## 四月
 
-### echarts 平均值 toolTip 的问题
+### 如何设计一个同时支持具名插槽和默认插槽的 vue 组件
 
-在 echarts 默认出现的 toolTip 中，可能会出现`null`等奇怪的东西出来，需要用 formatter 解决
+如果想要开发一个同时支持具体插槽和默认插槽的 vue 组件，关键在于如何判断组件是否使用了默认插槽，也就是加个判断：
 
 ```js
-const option = {
-  tooltip: {
-    formatter(params) {
-      // marker 是小圆点
-      const { color, marker, name, value } = params;
-      if (typeof color === "string") {
-        return `${marker}${name}: ${value}`;
-      }
-      return `${name}: ${value}`;
-    }
+computed: {
+  hasSlotDefault() {
+    // 组件内如果没内容，$slots.default 为 undefined
+    return !!this.$slots.default;
   }
+},
+```
+
+模板写法：
+
+```html
+<div class="project-main">
+  <template v-if="!hasSlotDefault">
+    <div class="menu">
+      <slot name="menu"></slot>
+    </div>
+    <div class="module">
+      <slot name="module"></slot>
+    </div>
+  </template>
+  <template v-else>
+    <slot></slot>
+  </template>
+</div>
+```
+
+### 如何在 .eslintrc.js 中配置 prettier 规则
+
+```js
+rules: {
+  'prettier/prettier': ['error', { singleQuote: true }]
+}
+```
+
+### 使用 emoji 设置 网页的 favicon 的方法
+
+```js
+const setFavicon = function(url) {
+  const favicon = document.querySelector('link[rel="icon"]');
+  if (favicon) {
+    favicon.href = url;
+  } else {
+    const link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = url;
+
+    document.head.appendChild(link);
+  }
+};
+
+const emojiFavicon = function(emoji) {
+  const canvas = document.createElement('canvas');
+  canvas.height = 64;
+  canvas.width = 64;
+
+  const context = canvas.getContext('2d');
+  context.font = '64px serif';
+  context.fillText(emoji, 0, 64);
+
+  const url = canvas.toDataURL();
+
+  setFavicon(url);
+};
+
+// Usage
+emojiFavicon('🎉');
+```
+
+### 计算 scrollbar 宽度的方法
+
+```js
+const calculateScrollbarWidth = function() {
+  const outer = document.createElement('div');
+  outer.style.visibility = 'hidden';
+  outer.style.overflow = 'scroll';
+
+  document.body.appendChild(outer);
+
+  const inner = document.createElement('div');
+  outer.appendChild(inner);
+
+  // 里外宽度相减得出滚动条的宽度
+  const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+
+  document.body.removeChild(outer);
+
+  return scrollbarWidth;
 };
 ```
 
-### vue 中 self 事件修饰符
+### pipe-promise
 
-`.self` 事件修饰符实际等于 `if (event.target !== event.currentTarget) return`
-
-### 正则过滤 "./index.js" 文件
-
-`/\.\/(?!index\.)\w*\.js$/.test("./index.js")`
-
-### form 表单中 button 的坑
-
-在`form`表单中，如果含有`button`按钮标签，点击则会重载页面，原因是因为在浏览器中，`button`的`type`属性会有默认值，w3c 标准如下：
-
-> 请始终为按钮规定 type 属性。Internet Explorer 的默认类型是 "button"，而其他浏览器中（包括 W3C 规范）的默认值是 "submit"。
-
-`type`属性为`submit`时会在表单中触发重载页面，所以指定 `type` 属性为 `button`即可
-
-在 form 表单中，应该用`input`标签来创建按钮
-
-### cached 函数
-
-该函数一般用于**缓存比较耗时**的函数，主要利用闭包进行实现
+跟 compose 函数用法类似，只不过 compose 函数是从右到左执行，链式，按顺序调用 promise 函数
 
 ```js
-function cached(fn) {
-  const cache = Object.create(null);
-  return function cachedFn(str) {
-    var hit = cache[str];
-    return hit || (cache[str] = fn(str));
-  };
-}
-
-const fn = cached(function(str) {
-  let i = 10000;
-  while (i--) {}
-  return str;
-});
-
-console.time("test1");
-fn(1); // 2.9ms
-console.timeEnd("test1");
-
-console.time("test2");
-fn(1); // 0.005ms // 第一次被缓存，所以非常快
-console.timeEnd("test2");
-```
-
-### yarn 升级指定包
-
-yarn upgrade-interactive --latest
-
-### 关于 vue button 组件的小坑
-
-自己封装了一个`button`组件
-
-```js
-const button = {
-  name: 'Button',
-  methods: {
-    handleClick() {
-      this.$emit('click')
-    }
-  }
-  render(h) {
-    return h('button', {
-      on: {
-        click: () => {
-          this.handleClick();
-        }
-      }
-    }, this.$slots.default)
-  }
-}
-```
-
-使用
-
-<Button @click.stop.prevent="handleClick">按钮</Button>
-
-这种情况下，是会报找不到 Cannot read property 'stopPropagation' of undefined 这种错
-
-解决方案是 把 event 对象传出去即可
-
-```js
-render(h) {
-    return h('button', {
-      on: {
-        click: (event) => {
-          this.handleClick(event);
-        }
-      }
-    }, this.$slots.default)
-  }
+const pipe = (...functions) => (input) =>
+  functions.reduce((chain, func) => chain.then(func), Promise.resolve(input));
 ```
 
 ## 五月
 
-### let、const、function、class 在 switch 中作用域问题
+### iview Modal 组件 slot 重渲染
 
-::: tip 原理
-词法声明在整个 switch 语句块中是可见的，但是它只有在运行到它定义的 case 语句时，才会进行初始化操作
-:::
+iview Modal 组件关闭后再打开内部插槽组件是不会重新渲染的，如果要重渲染，如何实现？下面是二次封装 Modal 组件解决方式的一些代码片段：
 
-错误示例：
+```vue
+<template>
+<Modal
+  v-model="show"
+  v-bind="$attrs"
+  v-on="$listeners"
+>
+  <template v-if="slotRerender">
+    <slot v-if="showSlot"></slot>
+  </template>
+  <template v-else>
+    <slot></slot>
+  </template>
+  </Modal>
+</template>
 
-```js
-switch (foo) {
-  case 1:
-    let x = 1;
-    break;
-  case 2:
-    const y = 2;
-    break;
-  case 3:
-    function f() {}
-    break;
-  default:
-    class C {}
-}
+<script>
+export default {
+  watch: {
+    async value(n) {
+      if (n === true) {
+        this.showSlot = !n;
+        await this.$nextTick();
+        this.show = n;
+        this.showSlot = n;
+      } else {
+        this.show = n;
+      }
+    },
+  },
+};
+</script>
 ```
 
-正确示例：
+### 如何用 this.$xxx 方式挂载 vue 组件
 
-```js
-switch (foo) {
-  case 1: {
-    let x = 1;
-    break;
-  }
-  case 2: {
-    const y = 2;
-    break;
-  }
-  case 3: {
-    function f() {}
-    break;
-  }
-  case 4:
-    var z = 4;
-    break;
-  default: {
-    class C {}
-  }
-}
+比如我这边有个基于 iview modal 封装的弹窗组件 ErsConfirm，用普通的模板写法就是这样的
+
+```html
+<ErsConfirm
+  v-model="modal1"
+  title="删除"
+  confirm-info="确定要删除该项目吗？"
+  @on-confirm="ok"
+  @on-close="cancel"
+/>
 ```
 
-### 输入框 input、change 事件的区别
-
-::: tip MDN文档
-> 与 input 事件不同，change 事件不一定会对元素值的每次更改触发
-:::
-
-也就是说，输入框`change`事件是在输入值时失去焦点或者按回车才会触发，`input`事件在输入时就会触发
-
-但是在**react**中，这两者是一样的，可以在这看看[原因](https://stackoverflow.com/questions/38256332/in-react-whats-the-difference-between-onchange-and-oninput)
-
-
-### webpack HMR 原理
-
-步骤：
-
-1. webpack 对文件系统进行 watch 打包到内存中
-2. devServer 通知浏览器端文件发生改变
-3. webpack-dev-server/client 接收到服务端消息做出响应
-4. webpack 接收到最新 hash 值验证并请求模块代码
-5. HotModuleReplacement.runtime 对模块进行热更新
-6. 业务模块调用 HMR 的 accept 方法，添加模块更新后的回调函数
-
-参考一个大佬写的[文章](https://zhuanlan.zhihu.com/p/30669007)
-
-### Function.length
-
-`Function.length` 表示函数形参的个数
+如果在业务逻辑中存在多个询问弹窗层，写大量模板是比较难受的事情，代码也比较冗余，所以需要用 js 命令式的方式进行组件挂载，这样看起来就优雅得多，下面是实现过程：
 
 ```js
-console.log(Function.length); // 1
+import Vue from 'vue';
+import ErsConfirm from './ErsConfirm/ErsConfirm.vue';
 
-console.log((function() {}).length); // 0
-
-console.log((function(a, b) {}).length); // 2
-
-console.log((function(a, b = 1, c) {}).length); // 1
-
-console.log((function(a, b, c = 1) {}).length); // 2
-```
-
-### js 变量私有化
-
-利用闭包
-
-```js
-function Person () {
-  // name变量私有化
-  const name = "l";
-  
-  this.getName = function() {
-    return name;
-  }
-
-  this.setName = function(newName) {
-    name = newName
-  }
+// Vue.use()
+export default function(Vue) {
+  Vue.prototype.$ErsConfirm = createErsConfirm;
 }
 
-// test
-const p = new Person();
-console.log(p.name); // undefined
-console.log(p.getName()); // "l"
-```
+function createErsConfirm(options = {}) {
+  const instance = ErsConfirm.newInstance(options);
+  instance.show();
+}
 
-### vuecli3 使用 webpack-bundle-analyzer
-
-vue-config.js 加入以下几句代码：
-
-```js
-module.exports = {
-  chainWebpack: config => {
-    // npm xxx --report 这里 npm config 会识别到
-    if (process.env.npm_config_report) {
-      config
-        .plugin('webpack-bundle-analyzer')
-        .use(require('webpack-bundle-analyzer').BundleAnalyzerPlugin)
+// 拿属性，不拿方法
+function getAttrs(props) {
+  return Object.keys(props).reduce((pre, cur) => {
+    if (typeof props[cur] !== 'function') {
+      pre[cur] = props[cur];
     }
-  }
-}
-```
-
-然后 `npm run build --report` 即可
-
-注意，如果用 `yarn` 的话 `npm_config_report` 会无法识别
-
-### @babel/plugin-transform-runtime 使用
-
-这个插件有什么用？
-
-::: tip 文档原文
-> A plugin that enables the re-use of Babel's injected helper code to save on codesize.
-:::
-
-也就是可以把重复的babel-helper代码抽离出来，减少重复的代码
-
-安装
-
-```shell
-yarn add @babel/plugin-transform-runtime -D
-
-yarn add @babel/runtime
-```
-
-使用 babel.config.js
-
-```js
-module.exports = {
-  plugins: ["@babel/plugin-transform-runtime"]
-}
-```
-
-**使用插件前的代码测试**
-
-测试 `async/await`
-
-```js
-async () => {
-  await Promise.resolve();
-}
-```
-
-使用 `@babel/preset-env` 后，为了支持 `async/await`，会在代码加入下面几个函数
-
-```js
-function asyncGeneratorStep() { 
-  // 很长，省略
+    return pre;
+  }, {});
 }
 
-function _asyncToGenerator(fn) { 
-  // 很长，省略
-}
+function noop() {}
 
-// 开始转译 async/await ...
+ErsConfirm.newInstance = (props) => {
+  const { onConfirm, onClose } = props;
+  const attrs = getAttrs(props);
+  const instance = new Vue({
+    inheritAttrs: false,
+    data: {
+      visible: false,
+    },
+    methods: {
+      change(value) {
+        if (value === false) {
+          this.remove();
+        }
+      },
+      remove() {
+        setTimeout(() => {
+          this.destroy();
+        }, 300);
+      },
+      destroy() {
+        this.$destroy();
+        if (this.$el) {
+          document.body.removeChild(this.$el);
+          this.$el = null;
+        }
+      },
+    },
+    render() {
+      return (
+        <ErsConfirm
+          value={this.visible}
+          on-input={this.change}
+          {...{
+            attrs,
+            on: {
+              'on-confirm': onConfirm || noop,
+              'on-close': onClose || noop,
+            },
+          }}
+        />
+      );
+    },
+  });
+
+  const component = instance.$mount();
+  document.body.appendChild(component.$el);
+
+  return {
+    show() {
+      instance.visible = true;
+    },
+  };
+};
 ```
-
-这些每个有 `async/await` 的地方，都有上面2个 helper 函数存在，这样代码会非常冗余
-
-**使用插件后的情况**
-
-```js
-var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault");
-
-var _regenerator = _interopRequireDefault(require("@babel/runtime/regenerator"));
-
-var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/asyncToGenerator"));
-```
-
-这样，可以做到重复利用 helper 函数，减少大量的重复代码
-
-## 六月
-
-### Babel 开启ES7装饰者模式
 
 安装插件
 
-```
-yarn add @babel/plugin-proposal-decorators @babel/plugin-proposal-class-properties -D
+```js
+import $ErsConfirm from './$ErsConfirm';
+Vue.use($ErsConfirm);
 ```
 
-增加 `plugins` 配置：
+这样，就可以用 this.$ErsConfirm 方式来使用了该组件了
 
 ```js
-module.exports = {
-  plugins: [
-    ["@babel/plugin-proposal-decorators", { legacy: true }],
-    ["@babel/plugin-proposal-class-properties", { loose: true }]
-  ]
-}
+this.$ErsConfirm({
+  title: '删除',
+  confirmInfo: '确定要删除该项目吗？',
+  onConfirm: () => {
+    console.log('confirm');
+  },
+  onClose: () => {
+    console.log('close');
+  },
+});
 ```
 
-### new 构造函数背后发生了什么
+## 六月
 
-- 以构造器的 `prototype` 属性为原型，创建新对象
-- 将新对象为 `this`，调用参数传给构造器，执行
-- 如果构造器返回的是对象，则返回，否则返回第一步创建的对象
+### typeScript 中的元组
 
-如何实现一个`new`函数呢？
+元组即 h 为合并了多种类型的数组，用于定义具有有限数量的未命名属性的类型
 
-```js
-function _new(Constructor, ...args) {
-  const obj = Object.create(Constructor.prototype);
-  const res = Constructor.apply(obj, args);
-  return res instanceof Object ? res : obj;
-}
+比如这么使用：
+
+```typeScript
+const tuple: [number, string, boolean] = [0, '1', true];
 ```
 
-### transitionend 事件细节
+预先声明了什么类型，都需要提供对应的值
 
-> 当 transition 完成前移除 transition 时，比如移除 css 的 `transition-property` 属性，事件将不会被触发，还有在 transition 完成前设置 `display: none`，事件同样不会被触发
+### yarn link 出现 permission denied
 
-### css 加载会造成阻塞吗？
+在本地`mac`开发环境中，`yarn link`之后如果可能会遇到`permission denied`问题，可参考这个[issue](https://github.com/yarnpkg/yarn/issues/3587)
 
-看到一篇不错的文章，请戳 [css加载会造成阻塞吗](https://zhuanlan.zhihu.com/p/43282197)
+解决方法就是需要使用`chmod +x`+你的`bin`文件中的`index.js`开启可执行权限，例如你的文件在`xxx/cli/bin/index.js`中，则使用`chmod +x xxx/cli/bin/index.js`就可以了
 
-结论：
-
-- css加载不会阻塞DOM树的解析
-- css加载会阻塞DOM树的渲染
-- css加载会阻塞后面js语句的执行
-
-
-### 在 webpack 中 process.env.NODE_ENV 是如何生效的
-
-最近在做项目时，经常会用 `process.env.NODE_ENV` 来区分生产环境和开发环境，分别进行不同的逻辑编写，虽然用起来很方便，但是不知道背后是怎么实现。抱着这份好奇心，便研究了一下。
-
-在 `node.js` 环境中，`process.env` 包含当前的环境变量，但是在 `webpack` 打包出来的代码是浏览器运行时的，跟 `node.js` 那种无关。所以在 `webpack` 环境下，是用了一个名为 `DefinePlugin` 的插件来实现 `process.env` 这些功能的
-
-关于这个插件，可以看看这里 [https://webpack.js.org/plugins/define-plugin/#usage](https://webpack.js.org/plugins/define-plugin/#usage)
-
-我当前做的项目是`vuecli3`构建出来的，看了下`webpack`配置信息，脚手架很贴心帮我们配置好了，类型这种:
+### Object.is polyfill
 
 ```js
-new DefinePlugin(
-  {
-    'process.env': {
-      NODE_ENV: '"development"',
-      BASE_URL: '""'
+if (!Object.is) {
+  Object.is = function(x, y) {
+    // SameValue algorithm
+    if (x === y) {
+      // Steps 1-5, 7-10
+      // Steps 6.b-6.e: +0 != -0
+      return x !== 0 || 1 / x === 1 / y;
+    } else {
+      // Step 6.a: NaN == NaN
+      return x !== x && y !== y;
     }
-  }
-),
-```
-
-所以，我们在代码中可以这么写
-
-```js
-const isDev = () => process.env.NODE_ENV === "development";
-```
-
-但是，问题又来了，比如，我在点击事件中
-
-```js
-handleClick() {
-  console.log(process.env);
+  };
 }
 ```
 
-点击后，控制台打印出了上面定义的对象
+### yarn link 之后可执行命令存在哪里
 
-```js
-{
-  NODE_ENV: 'development',
-  BASE_URL: ''
-}
-```
-
-开始我以为 `process` 这变量是挂在 `window` 上了，后来验证了下并不是，但是 `process.env` 是怎么打印出来的呢？
-
-后来，我去查了下打包后的代码，发现原来是这么实现的
-
-```js
-handleClick() {
-  console.log(Object({"NODE_ENV":"development","BASE_URL": ""}));
-}
-```
-
-`DefinePlugin` 插件可以在 `webpack` 编译时就把定义好的变量直接转译了，真相终于被揭晓了。 
-
-### 关于 npm 包版本号前缀 ~ 和 ^ 区别
-
-~ 会匹配安装最近的小版本依赖包，比如~1.2.3会匹配所有1.2.x版本，但是不包括1.3.0
-
-^ 会匹配安装最新的大版本依赖包，比如^1.2.3会匹配所有1.x.x的包，包括1.3.0，但是不包括2.0.0
+存在了`/usr/local/bin`目录下
 
 ## 七月
 
-### [Falsy](https://developer.mozilla.org/zh-CN/docs/Glossary/Falsy) 和 [Truthy](https://developer.mozilla.org/zh-CN/docs/Glossary/Truthy)
-
-> **Falsy**(虚值) 是在 Boolean 上下文(条件语句或者循环语句中)中已认定可转换为 **假** 的值
-
-下面的都是 `Falsy`：
-
-- `undefined`
-- `null`
-- `NaN`
-- `0`
-- `''`
-- `false`
-- `document.all`
-
-> **Truthy**(真值) 是指的是在布尔值上下文中，转换后的值为真的值，除了上面 **Falsy** 以外的值都是真值
-
-### 事件传播的三个阶段是什么？
-
-Capturing > Target > Bubbling
-
-捕获 > 目标 > 冒泡
-
-### flex 项目属性值记录
-
-- order: <integer> 默认为 0 (定义项目的排列顺序)
-- flex-grow: <number> 默认为 0 (如果存在剩余空间，也不伸展放大)
-- flex-shrink: <number> 默认为 1 (如果空间不足，该项目将被挤压缩小)
-- flex-basis: <length> | auto; (定义了在分配多余空间之前，项目占据的主轴空间，auto 为项目的本来大小)
-- flex: none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]
-
-### 关于 观察者模式和发布订阅模式
+### 转译函数
 
 ```js
-// 观察者模式
-// 一种一对多的依赖，当一个对象的状态发生改变时，所以依赖它的对象都将得到通知
-
-// demo
-class Observer {
-  constructor() {
-    this.subs = []
-  }
-
-  subscribe(target, cb) {
-    target.subs.push(cb)
-  }
-
-  publish() {
-    this.subs.forEach(sub => sub())
-  }
-}
-
-const ob1 = new Observer();
-const ob2 = new Observer();
-const ob3 = new Observer();
-
-ob2.subscribe(ob1, function() {
-  console.log('ob2 添加了对 ob1 的依赖，ob1 通知了我会响应')
-})
-
-ob3.subscribe(ob1, function() {
-  console.log('ob3 添加了对 ob1 的依赖，ob1 通知了我会响应')
-})
-
-ob1.publish() // ob1 发通知了
-
-// 发布-订阅 
-// 发布-订阅 是观察者的升级版
-// 发布-订阅 拥有一个调度中心
-// 如果用 发布-订阅 ，上面 Observer 类的 subscribe 和 publish 方法都在 observer 对象(调度中心) 进行管理
-
-const observer = {
-  subs: Object.create(null),
-  subscribe(type, cb) {
-    (this.subs[type] || (this.subs[type] = [])).push(cb)
-  },
-  publish(type, ...args) {
-    (this.subs[type] || []).forEach(cb => cb.apply(null, args))
-  }
-}
-
-observer.subscribe('ob', function() {
-  console.log('ob 事件被订阅了，可以发布')
-})
-
-observer.subscribe('obob', function() {
-  console.log('obob 事件被订阅了，可以发布')
-})
-
-observer.publish('ob')
-observer.publish('obob')
-```
-
-### js 词法分析
-
-js 运行前会进行词法分析，主要为三个步骤：
-
-- 分析参数
-
-- 分析变量的声明
-
-- 分析函数的声明
-
-尝试分析下面代码：
-
-```js
-
-function t1(age) {
-
-  console.log(age); // function age(){}
-
-  var age = 27;
-
-  console.log(age); // 27
-
-  function age() {}
-
-  console.log(age); // 27
-
-}
-
-t1(3);
-
-```
-
-具体步骤：
-
-函数在运行的瞬间，生成一个活动对象（Active Object），简称 AO
-
-第一步：分析参数：
-
-函数接收形式参数，添加到 AO 的属性，并且这个时候 age 值为 undefined，即 AO.age=undefined
-
-接收实参，添加到 AO 的属性，覆盖之前的 undefined, AO.age = 3
-
-第二步：分析变量声明：如 var name;或 var name='mary'，以上代码存在 var age = 27
-
-这时候 AO 上面已经有 age 属性了，则不作任何修改，否则，否则 AO 的属性值为 undefined
-
-第三步：分析函数的声明：
-
-function age(){}把函数赋给 AO.age ,覆盖上一步分析的值
-
-AO.age = function age(){}
-
-### 关于 axios 无法请求 koa 写的接口的问题
-
-我在前端页面试着用`axios`请求用`koa`写的接口，这是前端代码：
-
-```js
-async function axiosPost() {
-  const data = {
-    name: 'shooter'
-  }
-  await axios.post('http://localhost:3000/json', data)
+// Security helper :)
+function EscapeHtml() {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, (m) => {
+    return map[m];
+  });
 }
 ```
 
-这是后端接口：
+### nodejs 一些路径变量
+
+最近在写脚手架，记录些路径变量
 
 ```js
-router.post('/json', async (ctx, next) => {
-  ctx.body = {
-    status: '200',
-    data: {}
+console.log(__dirname); // 当前文件执行路径
+console.log(process.cwd()); // 当前程序运行路径，也就是在哪开始 node xxx 的
+
+// path.resolve() 方法可以将多个路径解析为一个规范化的绝对路径
+// path.join() 方法可以连接任意多个路径字符串
+// 注意，path这些api并不会使用文件系统来判断该路径合不合法，只是单纯的处理'./'和'/'
+```
+
+### 模块重定向
+
+如果我们想要在当前模块中，导出指定导入模块的默认导出（等于是创建了一个“重定向”）：
+
+```js
+import A from "./A.vue';
+export default A;
+
+// 其实是可以用模块重定向简写的
+export { default } from "./A.vue";
+
+// 如果模块有多个导出，可以这么做
+export * from './other-module';
+```
+
+### ts 使用 fs.promises
+
+使用 node 自带`fs.promises`模块，可以不需要`fs-extra`了
+
+```js
+import { promises as fs } from 'fs';
+```
+
+### 查看远程 npm 包最新版本
+
+最近脚手架做了个检测更新的功能，需要检测远程 npm 包的版本，和本地进行对比，获得 npm 包最新版本有以下几种方法：
+
+第一种，直接用 npm 自带脚本
+
+```
+npm show xxx version
+```
+
+第二种，使用第三方库[latest-version](https://github.com/sindresorhus/latest-version#readme)进行检测
+
+### docker nginx 容器 hjson 中文乱码
+
+linux 下采用 utf-8 编码，默认情况下我们的浏览器在服务器没有指定编码或者静态页面没有声明编码的情况下会以 gbk 的编码去渲染页面，这样默认情况下返回中文的话浏览器用 gbk 来解析 utf-8 编码，会出现乱码，解决方法如下：
+
+在 server 配置中增加
+
+```
+server {
+  add_header Content-Type 'text/html; charset=utf-8';
+}
+```
+
+这种主要是解决 network 中 previvew 中乱码，在页面上显示还是正常的，因为页面本来就指定了 utf-8 编码
+
+### 获取项目部署路径
+
+```js
+// 默认获取第一层
+// 看"/"在哪，取到哪，从0开始数起
+const getAbsolutePath = (level = 1) => {
+  const path = window.location.pathname;
+
+  let numDirsProcessed = 0;
+  let start = 0;
+
+  if (path.length === 1) {
+    return path;
   }
-  await next()
-})
-```
 
-发现这时候请求报了个跨域的错误，于是，我在上面加了跨域处理
-
-```js
-router.all("/*", async (ctx, next) => {
-  // *代表允许来自所有域名请求，包括 OPTION 请求
-  ctx.set("Access-Control-Allow-Origin", "*");
-  await next();
-});
-```
-
-发现还是报了`has been blocked by CORS policy: Request header field content-type is not allowed by Access-Control-Allow-Headers in preflight response.`这个错误。仔细看下，其实是请求头`content-type`被修改了，主要原因是`axios`post请求的`content-type`默认用`application/json`，相当于`xhr.setRequestHeader('Content-type', 'application/json;');`，所以解决方案是允许修改请求头，还要加多一行代码：
-
-```js
-router.all("/*", async (ctx, next) => {
-  // *代表允许来自所有域名请求，包括 OPTION 请求
-  ctx.set("Access-Control-Allow-Origin", "*");
-  ctx.set("Access-Control-Allow-Headers", "*");
-  await next();
-});
-```
-
-这样就可以了
-
-为再验证下，手写了个原生`post`请求：
-
-```js
-function postJson() {
-  const xhr = new XMLHttpRequest()
-  const data = {
-    name: 'shooter'
+  if (level === 0) {
+    return '/';
   }
-  xhr.open('post', 'http://localhost:3000/json')
-  // 不设这个，上面不设 ctx.set("Access-Control-Allow-Headers", "*");不报错
-  // 设了这个，上面就要设 Access-Control-Allow-Headers"
-  xhr.setRequestHeader('Content-type', 'application/json;')
-  xhr.send(JSON.stringify(data))
 
-  xhr.onreadystatechange = function () {
-    if (xhr.readyState === 4 && xhr.status === 200) {
-      console.log(xhr)
+  while (numDirsProcessed !== level) {
+    const char = path[++start];
+    if (char === '/') {
+      numDirsProcessed++;
+    }
+
+    if (!char) {
+      return '/';
     }
   }
+
+  return path.slice(0, start + 1);
+};
+
+const getDeployPath = (level) => {
+  return window.location.origin + getAbsolutePath(level);
+};
+```
+
+### nodejs 判断文件或者目录是否存在的
+
+```js
+//
+function pathExists(path) {
+  return fs.promises
+    .access(path)
+    .then(() => true)
+    .catch(() => false);
 }
 ```
 
-用中间件 [koa2-cors](https://github.com/zadzbw/koa2-cors) 也可以解决这类问题
+### nodejs 集体导出模块的方法
 
-### jenkins 常用的环境变量
-
-```
-项目名称：PROJECT_NAME
-
-构建编号：BUILD_NUMBER
-
-构建状态：BUILD_STATUS
-
-触发原因：CAUSE
-
-构建地址：BUILD_URL
-```
-
-### window.performance 计算首屏时间
-
-- 首屏时间 = window.performance.timing.domContentLoadedEventEnd - window.performance.timing.domLoading
-- 白屏时间 = window.performance.timing.domLoading - window.performance.timing.fetchStart
-
-### 打印 dom 对象具体信息
+合并到`exports`对象上即可，参考了`@vue/cli-shared-utils`源码
 
 ```js
-const div = document.createElement('div')
-console.log([div]) // 用数组包一层
+[
+  'env',
+  'exit',
+  'ipc',
+  'logger',
+  'module',
+  'object',
+  'openBrowser',
+  'pkg',
+  'pluginResolution',
+  'launch',
+  'request',
+  'spinner',
+  'validate',
+].forEach((m) => {
+  Object.assign(exports, require(`./lib/${m}`));
+});
 ```
 
 ## 八月
 
-### 如何前后端配合自定义请求响应头字段
+### docker 如何不使用缓存重建镜像
 
-前端如果要获取`response header`里面的值，可以通过`XMLHttpRequest`实例的`getResponseHeader()`方法进行获取，但是根据[w3c-cors标准](https://www.w3.org/TR/2014/REC-cors-20140116/)，参考**7.1.1**，可以看出不是所有的请求头字段都可以获取到，只有`simple-response-header`和设置了`Access-Control-Expose-Headers`指定字段才可以被`getResponseHeader()`获取到，关于`simple-response-header`有以下这几种：
+docker 在重建镜像的时候，会优先使用缓存进行构建，但是有些情况不能使用缓存构建，比如前端代码拉取打包这些，如何用了缓存生成代码就不能更新，所以需要解决这个问题
 
-- Cache-Control
-- Content-Language
-- Content-Type
-- Expires
-- Last-Modified
-- Pragma
+`docker build --no-cache .`
 
-这几种都可以获取到。
+构建时带上`--no-cache`即可
 
-但是，如果我想自定义一个字段，就需要和后端配合`Access-Control-Expose-Headers`来实现
-
-比如在`koa`中，设置对应的字段即可：
+### 判断空对象的方法
 
 ```js
-router.get('/get', async (ctx, next) => {
-  ctx.set('Access-Control-Expose-Headers', 'token')
-  ctx.set('token', '123456')
-  ctx.body = 'success'
-  await next()
-});
-```
-
-使用`axios`请求就能在返回的对象`headers`字段中获取：
-
-```js
-axios.get('/get').then(res => {
-  console.log(res.headers.token); // '123456'
-})
-```
-
-### img在外层div使用 line- height 居中无效？
-
-解决方案1：
-
-`img`元素使用 `vertical-align: middle`
-
-```html
-<div>
-  <img src="xxx"/>
-</div>
-```
-
-```css
-div {
-  line-height: 300px;
-}
-div img {
-  vertical-align: middle;
+function checkObjectEmpty(value) {
+  return (
+    value && Object.keys(value).length === 0 && value.constructor === Object
+  );
 }
 ```
 
-解决方案2：
+为什么要加`value.constructor === Object`的判断？
 
-不用`line-height`居中，直接用`flex + margin`
-
-```css
-div {
-  height: 300px;
-  display: flex;
-}
-div img {
-  margin: auto 0;
-}
-```
-
-### scss @extend
-
-scss 提供的`@extend`函数非常方便，甚至伪类都可以被继承:
-
-```scss
-.item {
-  &:hover {
-    // ...
-  }
-  &.active {
-    @extend :hover; // 这样 .item.active 便可继承 .item:hover 的样式了
-  }
-}
-```
-
-### 桥接 vue 组件api的方式
-
-使用 `v-bind` 属性和 `v-on` 事件即可实现：
-
-```vue
-<template>
-  <AppList v-bind="$props" v-on="$listeners"> <!-- ... --> </AppList>
-</template>
-
-<script>
-  import AppList from "./AppList";
-
-  export default {
-    name: 'SortableList',
-    props: AppList.props,
-    components: {
-      AppList
-    }
-  };
-</script>
-```
-
-这样`SortableList`组件的属性和事件就和`AppList`组件一致了
-
-### 获取最外层节点的 offsetLeft
+如果不加，参数输入以下这几种均为`true`:
 
 ```js
-function getElementLeft(element) {
-　let actualLeft = element.offsetLeft;
-　let current = element.offsetParent;
-
-　while (current !== null){
-　　actualLeft += current.offsetLeft;
-　　current = current.offsetParent;
-　}
-
-　return actualLeft;
-}
+checkObjectEmpty(new String()); // true
+checkObjectEmpty(new Number()); // true
+checkObjectEmpty(new Boolean()); // true
+checkObjectEmpty(new Array()); // true
+checkObjectEmpty(new RegExp()); // true
+checkObjectEmpty(new Function()); // true
+checkObjectEmpty(new Date()); // true
 ```
 
-### css 多行文本溢出效果
+实际上，我们只检测`new Object()`而不包括上面这种构造函数的实例
 
-- 单行：
+还有，增加 value 是否存在的判断，是为了过滤`null`和`undefined`，避免报 error
 
-```css
-overflow: hidden;
-text-overflow: ellipsis;
-white-space: nowrap;
-```
-
-- 多行：
-
-仅兼容webkit内核的浏览器
-
-```css
-display: -webkit-box;
--webkit-box-orient: vertical;
--webkit-line-clamp: 3;
-overflow: hidden;
-```
-
-- 兼容：
-
-```css
-p{position: relative; line-height: 20px; max-height: 40px;overflow: hidden;}
-p::after{content: "..."; position: absolute; bottom: 0; right: 0; padding-left: 40px;
-background: -webkit-linear-gradient(left, transparent, #fff 55%);
-background: -o-linear-gradient(right, transparent, #fff 55%);
-background: -moz-linear-gradient(right, transparent, #fff 55%);
-background: linear-gradient(to right, transparent, #fff 55%);
-}
-```
-
-### http 状态码
-
-状态代码有三位数字组成，第一个数字定义了响应的类别，共分五种类别:
-
-- 1xx：指示信息--表示请求已接收，继续处理
-- 2xx：成功--表示请求已被成功接收、理解、接受
-- 3xx：重定向--要完成请求必须进行更进一步的操作
-- 4xx：客户端错误--请求有语法错误或请求无法实现
-- 5xx：服务器端错误--服务器未能实现合法的请求
-
-## 九月
-
-### Vue.extend
-
-根据文档解释：
-
-> 使用基础 Vue 构造器，创建一个“子类”。参数是一个包含组件选项的对象。
-
-其实就是返回一个`VueComponent`函数，和调用`Vue.component`(选项不为`null`前提)返回的一样：
+### ES6 判断 2 个对象是否相等
 
 ```js
-var Sub = function VueComponent (options) {
-  this._init(options);
-};
-return Sub;
+const o1 = { fruit: 'apple' };
+const o2 = { fruit: 'apple' };
+
+Object.entries(o1).toString() === Object.entries(o2).toString(); // true
 ```
 
-使用的话，可以这样：
+### 过滤对象某个 key 值
 
 ```js
-const Ctor = Vue.extend({
-  data() {
-    return {}
-  },
-  template: `<div>comp</div>`
-}) 
+const food = { meat: '🥩', broccoli: '🥦', carrot: '🥕' };
 
-// 这里还是可以传入组件选项的对象
-// 实例化一个组件
-const comp = new Ctor({
-  data: {}
-})
-
-// 使用
-comp.$mount();
-document.body.appendChild(comp.$el);
-```
-
-### :empty 伪类
-
-`:empty`选择器选择每个没有任何子级的元素，包括文本节点
-
-```html
-<div></div>
-```
-
-```css
-div:empty {
-  height: 100px;
-  width: 100px;
-}
-```
-
-### 判断浏览器事件侦听器是否兼容`passive`
-
-```js
-var supportsPassive = false;
-
-try {
-  // 通过 getter 判断
-  var opts = Object.defineProperty({}, 'passive', { get: function(){ supportsPassive = true }});
-  // 绑定一个事件，触发上面的 getter，如果异常，说明浏览器不支持
-  document.addEventListener('test', function() {}, opts);
-} catch (error) {}
-
-elem.addEventListener('touchstart', fn, supportsPassive ? { passive: true } : false);
-```
-
-### 逗号操作符
-
-逗号操作符用得很少，偏冷门，但是面试可能会被问到，所以在此记录下
-
-> 逗号操作符，对它的每个操作数求值（从左到右），并返回最后一个操作数的值
-
-```js
-var x = 1;
-
-x = (x++, x); // x > 2
-
-var arr = [1,2,3,4]
-
-arr[4,1,3,2] // arr[2] > 3
-
-```
-
-### 判断浏览器是否已滚动到底部
-
-```js
-window.addEventListener('scroll', function() {
-  const { scrollTop, scrollHeight, clientHeight } = document.scrollingElement;
-
-  // 滚动高度 + 视口高度 >= 文档总高度
-  if (scrollTop + clientHeight >= scrollHeight) {
-    console.log('到达底部了~')
-  }
-})
-```
-
-### 为什么vue组件选项中的data必须是个函数？
-
-注册组件的本质实际上是建立一个组件构造器的引用，在使用时才会去实例化。也就是生成一个function。
-
-下面就关于原型的知识了
-
-​组件data属性实际上在挂载到 构造器function.prototype上的，比如
-
-```js
-const Comp = function () {}
-
-Comp.prototype.data = ...
-```
-
-​如果该原型下的data属性值为**对象**
-
-```js
-// 创建构造器Comp
-Vue.component('Comp', {
-  data: {
-    a: 1,
-    b: 2
-  }
-})
-
-const Comp = function ({ data }) {
-  // 类似于这种
-  this.data = this.data;
+function filterObjectKey(obj, k) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([key, value]) => key !== k)
+  );
 }
 
-// 简化后的代码实际上是这个
-// 取到注册对象 data 属性并挂载到构造器原型上
-Comp.prototype.data = {
-  a: 1,
-  b: 2
-}
-
-// 如果多次实例化
-const compA = new Comp();
-const compB = new Comp();
-
-compA.data === compB.data; // true 两者共同指向同一地址
-compA.data.c = 3;
-console.log(compB.data.c); // 3 (这样就容易引起麻烦)
-
+filterObjectKey(food, 'meat');
+// { broccoli: '🥦', carrot: '🥕' }
 ```
 
-为了避免引发上述的麻烦，通过函数独立作用域便可解决
+### babel 是怎么实现 const 和 let 块级作用域的
+
+在 ES6 中，const 和 let 声明变量只会在代码块中有效，但是在 ES5 中是没有的，那 babel 是怎么实现的呢？
+
+其实 babel 是通过编译时实现的，而非运行时实现，比如：
 
 ```js
-// 创建构造器Comp
-Vue.component('Comp', {
-  data() {
-    // 每次调用都返回一个新的对象
-    return {
-      a: 1,
-    	b: 2
-    }
-  }
-})
-
-const Comp = function ({ data }) {
-  // 调用原型 data 函数，每个组件实例都有各自的数据副本，避免数据互相影响
-  this.data = this.data();
+if (true) {
+  const content = ``;
+  console.log(content);
 }
-
-Comp.prototype.data = function () {
-  a: 1,
-  b: 2
-}
-
-const compA = new Comp();
-const compB = new Comp();
-
-compA.data === compB.data; // false
-
+console.log(content);
 ```
 
-## 十月
-
-### tree 组件半选框的核心逻辑
+编译后：
 
 ```js
-function indeterminate(item) {
-  // 递归获取该节点下的所有子节点
-  const leafNodes = this.getLeafNodes(item);
-  return {
-    // indet 为半选控制
-    // 当子节点非全部选中时和至少有一个子节点被选中，才会出现半选
-    indet:
-      !leafNodes.every(n => n.selected) && leafNodes.some(n => n.selected),
-      value: leafNodes.every(n => n.selected)
+if (true) {
+  var _content = '';
+  console.log(_content);
+}
+console.log(content);
+```
+
+可以看到，块级内的`content`变量被编译成`_content`，块级外面的`content`则没被编译，这样就实现了块级作用域化
+
+那老生常谈的 for 循环中的 let 块级作用域的实现呢，因为单纯靠改变变量名是实现不了的，比如`for (var i = 0; i < 10; i++)`和`for (var _i = 0; _i < 10; _i++)`是一样的，babel 的实现是这样的：
+
+```js
+var a = [];
+for (let i = 0; i < 10; i++) {
+  a[i] = function() {
+    console.log(i);
   };
 }
 ```
 
-### Vue.nextTick 渲染时机
-
-先来看一段代码：
+编译后：
 
 ```js
-const app = new Vue({
-  data: {
-    a: 1
-  }
-})
+var a = [];
 
-// setTimeout 模拟请求，都是task
-setTimeout(() => {
-  app.a = 2 // 这里也是执行 nextTick
+var _loop = function _loop(i) {
+  a[i] = function() {
+    console.log(i);
+  };
+};
 
-  console.log(app.$el.innerHTML) // 1
-  Vue.nextTick(() => {
-    console.log(app.$el.innerHTML) // 2
-    alert('卡住线程，阻塞渲染') // 可以看到视图上还是 1
-  })
-},0)
-```
-
-`nextTick`本质是**microtask**，浏览器渲染时序是
-
-> 执行当前 macrotask -> 清空 microtask -> render layout
-
-这也是**eventloop**的基本特征
-
-vue文档上说，只有在nextTick回调中才能拿到更新后的值，为什么这么做？实际上是用于优化减少dom的操作
-
-你会发现，上述代码中，根据注释，在同个事件循环中(上面两个`nextTick`隶属于同个事件循环)，为什么在后面那个`nextTick`中能拿到最新的值呢，毕竟视图并没有更新。
-
-> js获取视图新的节点值不一定要等到UI更新后才能拿到
-
-通过添加`alert`阻塞视图渲染，印证了这个原理，在视图没更新的情况下，我们也能拿到dom节点的最新值。
-
-### js 什么时候一定要写分号
-
-在 JavaScript 中，分号通常是可选的，因为会自动插入分号（ASI)。你可以使用 semi 规则要求或禁止分号。
-
-ASI 的规则是相对简单的：正如 Isaac Schlueter 曾经描述的那样，一个 \n 字符总是一个语句的结尾(像分号一样)，除非下面之一为真：
-
-- 该语句有一个没有闭合的括号，数组字面量或对象字面量或其他某种方式，不是有效结束一个语句的方式。（比如，以 . 或 , 结尾）
-- 该行是 -- 或 ++（在这种情况下它将减量/增量的下一个标记）
-- 它是个 for()、while()、do、if() 或 else，并且没有 {
-- 下一行以 [、(、+、*、/、-、,、. 或一些其它在单个表达式中两个标记之间的二元操作符。
-
-换行不结束语句，书写错误遗漏了分号，这些异常会导致两个不相干的连续的行被解释为一个表达式
-
-```js
-const b = [1,2,3]
-const a = b
-[1,2,3].forEach(...)
-```
-
-这段代码实际上是
-
-```js
-const a = b[1,2,3].forEach(...)
-```
-
-所以必须写成
-
-```js
-const b = [1,2,3]
-const a = b;
-[1,2,3].forEach(...)
-```
-
-这样才不会运行错误!
-
-还有，函数立即执行
-
-```js
-const a = 123
-(function () {  })()
-```
-
-有没有看出问题？这段代码是会运行报错的！因为这满足了上面文字中的第4条！
-
-实际上还是这样执行
-
-```js
-const a = 123(function () {  })()
-```
-
-所以要这么写
-
-```js
-const a = 123;
-(function () {  })()
-```
-
-或者
-
-```js
-const a = 123
-;(function () {  })()
-```
-
-如果你本人是拒绝分号党，那么强烈建议你用`eslint`帮你预警！不然还是回归到分号党吧！
-
-### 如何劫持ajax请求？
-
-本质是劫持`XMLHttpRequest`实例的`send`请求，所以我们可以重写这个方法进行劫持：
-
-```js
-class XML extends XMLHttpRequest {
-  constructor() {
-    super()
-  }
-
-  send(...args) {
-    console.log('hhh，被我发现了吧');
-    super.send(...args); // 调用父类方法可以发送请求
-  }
-}
-
-XMLHttpRequest = XML
-
-axios.get('xxx') // 可以看到上面的 console.log()
-```
-
-### 如何判断该函数是不是原生函数
-
-```js
-function isNative (Ctor) {
-  return typeof Ctor === 'function' && /native code/.test(Ctor.toString())
+for (var i = 0; i < 10; i++) {
+  _loop(i);
 }
 ```
 
-## 十一月
-
-### text-overflow: ellipsis 不生效的原因？
-
-必须是块级元素，`display: flex` 影响生效的原因之一，
-
-根据`MDN文档`，
-
-> 这个属性只对那些在块级元素溢出的内容有效，但是必须要与块级元素内联(inline)方向一致（举个反例：内容在盒子的下方溢出。此时就不会生效）。文本可能在以下情况下溢出：当其因为某种原因而无法换行(例子：设置了"white-space:nowrap")，或者一个单词因为太长而不能合理地被安置(fit)。
-
-参考[这里](https://developer.mozilla.org/zh-CN/docs/Web/CSS/text-overflow)
-
-### 把数组某个值快速置后的方法
-
-```js
-const arr = [1,2,3];
-const fn = (arr, index) => arr.push(arr.splice(index, 1)[0]);
-
-fn(arr, 1); // arr => [1,3,2];
-```
-
-### 为什么 [] == ![] 为 true ?
-
-`![]`实际为`false`，所以比较的是 `[] == false`，为什么 `[] == false` 为 `true`？
-
-== 会触发隐式转换，有个准则，看一个表格：
-
-| 类型(x) | 类型(y) | 结果 |
-| ------- | -------   | ---- |
-| null | undefined | true |
-| undefined | null | true |
-| 数字 | 字符串 | x == toNumber(y) |
-| 字符串 | 数字 | toNumber(x) == y |
-| 布尔值 | 任何类型 | toNumber(x) == y |
-| 任何类型 | 布尔值 | x == toNumber(y) |
-| 字符串或数字 | 对象 | x == toPrimitive(y) |
-| 对象 | 字符串或数字 | toPrimitive(x) == y |
-
-来看下 `[] == false` 的判断流程：
-
-1、根据表格，**任何类型与布尔值**比较，先让`false`转成`number`，Number(fasle) => 0
-
-2、来到了`[] == 0`比较，即**对象和数字比较**，toPrimitive([]) => [].valueOf() -> 返回的是原始类型 ？[].valueOf() : [].valueOf().toString()
-
-3、[].valueOf().toString() -> ""
-
-4、来到了`"" == 0`比较，即**字符串和数字比较**，Number("") -> 0
-
-5、所以，`0 == 0` 还不是 true 嘛
-
-### vue2.x 响应式实现观察者模式精简版
-
-```js
-let target = null; // 指向 watcher
-
-const dep = {
-  subs: [], // 收集依赖
-  notify() {
-    this.subs.forEach(sub => {
-      sub.update();
-    });
-  },
-  addSubs(watcher) {
-    this.subs.push(watcher);
-  },
-  depend() {
-    if (target) {
-      target.addDep(this);
-    }
-  }
-};
-
-// watcher 分为三种
-// render-watcher、computed-watcher、user-watcher
-const watcher = {
-  deps: [],
-  update() {
-    console.log('updated');
-  },
-  addDep(dep) {
-    this.deps.push(dep);
-    dep.addSubs(this);
-  }
-};
-
-target = watcher;
-dep.depend(); // 收集依赖
-dep.notify(); // 派发更新
-```
-
-## 十二月
-
-### vue jsx @click.native 写法
-
-写法一：
-
-```js
-<comp vOn:click_native={this.xxx}></comp>
-```
-
-写法二：
-
-```js
-<comp nativeOnClick={this.xxx}></comp>
-```
-
-### vue-router3.1 push 相同路由报错的解决方法
-
-```js
-const originalPush = VueRouter.prototype.push;
-VueRouter.prototype.push = function push(location, onResolve, onReject) {
-  if (onResolve || onReject)
-    return originalPush.call(this, location, onResolve, onReject);
-  return originalPush.call(this, location).catch(err => err);
-};
-```
-
-### 关于ajax发送cookie到服务端发生跨域的问题
-
-如果前端要发送cookie到服务端，需要把xhr的**withCredentials**设置为true：
-
-```js
-const xhr = new XMLHttpRequest();
-xhr.open('GET', 'http://example.com/', true);
-xhr.withCredentials = true;
-xhr.send(null);
-```
-
-服务端需要把响应头的的**Access-Control-Allow-Credentials**设置为true，比如`koa2-cors`可以这么设：
-
-```js
-app.use(cors({
-  credentials: true
-}));
-```
-
-这种可以在同源中实现cookie传递，如果非同源，会有跨域问题。如何解决？
-
-> Access-Control-Allow-Origin 不能设为星号，必须指定明确的、与请求网页一致的域名。
-
-平常后端解决跨域一般都是把`Access-Control-Allow-Origin`设为`*`，但是要传cookie的话，就需要后端动态读取请求域名然后动态设置了。
-
-### encodeURI() 和 encodeURIComponent() 的区别
-
-- encodeURI
-
-> encodeURI 函数可把字符串作为 URI 进行编码
-
-encodeURI() 函数不会对 ASCII 字母和数字进行编码，也不会对这些 ASCII 标点符号进行编码: - _ . ! ~ * ' ( ) 。
-
-该方法的目的是对 URI 进行完整的编码，因此对以下在 URI 中具有特殊含义的 ASCII 标点符号，encodeURI() 函数是不会进行转义的：**;/?:@&=+$,#**
-
-如果 URI 组件中含有分隔符，比如 ? 和 #，则应当使用 encodeURIComponent() 方法分别对各组件进行编码。
-
-- encodeURIComponent
-
-> encodeURIComponent() 函数可把字符串作为 URI 组件进行编码
-
-该方法不会对 ASCII 字母和数字进行编码，也不会对这些 ASCII 标点符号进行编码： - _ . ! ~ * ' ( ) 。
-
-其他字符（比如 ：;/?:@&=+$,# 这些用于分隔 URI 组件的标点符号），都是由一个或多个十六进制的转义序列替换的。
-
-摘自 [w3c](https://www.w3school.com.cn/jsref/jsref_encodeURIComponent.asp) 里的一段话：
-
-> 请注意 encodeURIComponent() 函数 与 encodeURI() 函数的区别之处，前者假定它的参数是 URI 的一部分（比如协议、主机名、路径或查询字符串）。因此 encodeURIComponent() 函数将转义用于分隔 URI 各个部分的标点符号。
-
-比如：
-
-```js
-const uri = 'http://shooterblog.site/2019/07/09/【Vue源码学习系列】解读数据响应式实现原理/'
-
-encodeURI(uri) // http://shooterblog.site/2019/07/09/%E3%80%90Vue%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97%E3%80%91%E8%A7%A3%E8%AF%BB%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/
-
-encodeURIComponent(uri) // http%3A%2F%2Fshooterblog.site%2F2019%2F07%2F09%2F%E3%80%90Vue%E6%BA%90%E7%A0%81%E5%AD%A6%E4%B9%A0%E7%B3%BB%E5%88%97%E3%80%91%E8%A7%A3%E8%AF%BB%E6%95%B0%E6%8D%AE%E5%93%8D%E5%BA%94%E5%BC%8F%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86%2F
-```
-
-encodeURI() 和 encodeURIComponent() 对应的解码方法是 decodeURI() 和 decodeURIComponent()
-
-<ToTop/>
+可以看到，babel 的实现方式是增加一个`_loop`函数，每次循环都执行一次`_loop`函数，把变量保存在**闭包**里面，这样读取的就不是全局变量 i 了
