@@ -1,7 +1,7 @@
 module.exports = {
   evergreen: true,
   base: "/Notebook/",
-  title: "Raojw's Notebook",
+  title: "RJW's Notebook",
   description: "📝每天记录一点点",
   head: [
     ['link', { rel: 'icon', href: '/images/logo.png' }]

@@ -238,17 +238,13 @@ iview Modal 组件关闭后再打开内部插槽组件是不会重新渲染的�
 
 ```vue
 <template>
-<Modal
-  v-model="show"
-  v-bind="$attrs"
-  v-on="$listeners"
->
-  <template v-if="slotRerender">
-    <slot v-if="showSlot"></slot>
-  </template>
-  <template v-else>
-    <slot></slot>
-  </template>
+  <Modal v-model="show" v-bind="$attrs" v-on="$listeners">
+    <template v-if="slotRerender">
+      <slot v-if="showSlot"></slot>
+    </template>
+    <template v-else>
+      <slot></slot>
+    </template>
   </Modal>
 </template>
 
@@ -270,7 +266,7 @@ export default {
 </script>
 ```
 
-### 如何用 this.$xxx 方式挂载 vue 组件
+### 如何用 this.\\\$xxx 方式挂载 vue 组件
 
 比如我这边有个基于 iview modal 封装的弹窗组件 ErsConfirm，用普通的模板写法就是这样的
 
@@ -374,7 +370,7 @@ import $ErsConfirm from './$ErsConfirm';
 Vue.use($ErsConfirm);
 ```
 
-这样，就可以用 this.$ErsConfirm 方式来使用了该组件了
+这样，就可以用 this.\\\$ErsConfirm 方式来使用了该组件了
 
 ```js
 this.$ErsConfirm({
@@ -703,3 +699,80 @@ for (var i = 0; i < 10; i++) {
 ```
 
 可以看到，babel 的实现方式是增加一个`_loop`函数，每次循环都执行一次`_loop`函数，把变量保存在**闭包**里面，这样读取的就不是全局变量 i 了
+
+### ts get 函数正确写法
+
+```ts
+const obj = {
+  name: 'obj',
+  value: 666,
+};
+
+function get(obj: object, key: string) {
+  return obj[key];
+}
+```
+
+这种写法是有问题的，ts 无法推断返回值的类型，也无法对 key 值进行约束
+
+正确的写法，关键在于`keyof`的使用
+
+```ts
+function get<T extends object, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key];
+}
+```
+
+### nodejs 拉取远端图片保存本地基础写法
+
+`http`模块请求方式
+
+```js
+function fetchFile() {
+  http.get(
+    `xxx.jpg`,
+    function (stream) {
+      const chunks = [];
+      let res = null;
+      stream.on('data', function (chunk) {
+        chunks.push(chunk);
+      });
+
+      stream.on('end', function (chunk) {
+        res = Buffer.concat(chunks);
+
+        fs.writeFile('xxx.jpg', res);
+      });
+    }
+  );
+}
+```
+
+`axios`请求方式
+
+```js
+axios.get(`xxx.jpg`, {
+  // 注重要指定 responseType 为 "arraybuffer"
+  // 不然默认返回的是Buffer.toString()
+  // 这样保存图片就会有问题
+  responseType: "arraybuffer"
+}).then(res => fs.writeFileSync("xxx.jpg", res.data))
+```
+
+`axios`源码写法如下
+
+```js
+stream.on('end', function handleStreamEnd() {
+  var responseData = Buffer.concat(responseBuffer);
+  if (config.responseType !== 'arraybuffer') {
+    responseData = responseData.toString(config.responseEncoding);
+  }
+
+  response.data = responseData;
+  settle(resolve, reject, response);
+});
+```
+
+所以使用`axios`请求图片流时需要声明`responseType`为`"arraybuffer"`
+
+<ToTop/>

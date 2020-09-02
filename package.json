@@ -1,5 +1,5 @@
 {
-  "name": "shooterrao-notebook",
+  "name": "rjw-notebook",
   "version": "1.0.0",
   "scripts": {
     "dev": "vuepress dev docs",
@@ -15,15 +15,17 @@
   "engines": {
     "node": ">=8"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@vuepress/plugin-back-to-top": "^1.0.0-alpha.0",
     "husky": "^1.0.0-rc.13",
-    "vuepress": "^0.14.1"
+    "vuepress": "^1.5.3"
   },
   "husky": {
     "hooks": {
       "pre-push": "bash deploy.sh"
     }
+  },
+  "dependencies": {
+    "-": "^0.0.1",
+    "D": "^1.0.0"
   }
 }
