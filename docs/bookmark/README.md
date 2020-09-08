@@ -244,8 +244,6 @@
 
 - [前端开发者指南（2017）](https://sqrtthree.gitbooks.io/front-end-handbook-2017/content/)
 
-- [前端开发笔记本](https://li-xinyang.gitbooks.io/frontend-notebook/content/)
-
 - [F2EDOCS](https://f2edocs.com/)
 
 - [You-Dont-Know-JS](https://github.com/getify/You-Dont-Know-JS)

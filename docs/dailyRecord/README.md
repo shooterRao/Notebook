@@ -729,34 +729,33 @@ function get<T extends object, K extends keyof T>(obj: T, key: K): T[K] {
 
 ```js
 function fetchFile() {
-  http.get(
-    `xxx.jpg`,
-    function (stream) {
-      const chunks = [];
-      let res = null;
-      stream.on('data', function (chunk) {
-        chunks.push(chunk);
-      });
+  http.get(`xxx.jpg`, function(stream) {
+    const chunks = [];
+    let res = null;
+    stream.on('data', function(chunk) {
+      chunks.push(chunk);
+    });
 
-      stream.on('end', function (chunk) {
-        res = Buffer.concat(chunks);
+    stream.on('end', function(chunk) {
+      res = Buffer.concat(chunks);
 
-        fs.writeFile('xxx.jpg', res);
-      });
-    }
-  );
+      fs.writeFile('xxx.jpg', res);
+    });
+  });
 }
 ```
 
 `axios`请求方式
 
 ```js
-axios.get(`xxx.jpg`, {
-  // 注重要指定 responseType 为 "arraybuffer"
-  // 不然默认返回的是Buffer.toString()
-  // 这样保存图片就会有问题
-  responseType: "arraybuffer"
-}).then(res => fs.writeFileSync("xxx.jpg", res.data))
+axios
+  .get(`xxx.jpg`, {
+    // 注重要指定 responseType 为 "arraybuffer"
+    // 不然默认返回的是Buffer.toString()
+    // 这样保存图片就会有问题
+    responseType: 'arraybuffer',
+  })
+  .then((res) => fs.writeFileSync('xxx.jpg', res.data));
 ```
 
 `axios`源码写法如下
@@ -774,5 +773,64 @@ stream.on('end', function handleStreamEnd() {
 ```
 
 所以使用`axios`请求图片流时需要声明`responseType`为`"arraybuffer"`
+
+## 九月
+
+### 浏览器如何检测系统主题色
+
+在较新的浏览器中，可以使用`prefers-color-scheme`CSS 媒体查询来检测系统主题色为`light`或者是`dark`
+
+```css
+@media (prefers-color-scheme: dark) {
+  .day.dark-scheme   { background:  #333; color: white; }
+  .night.dark-scheme { background: black; color:  #ddd; }
+}
+
+@media (prefers-color-scheme: light) {
+  .day.light-scheme   { background: white; color:  #555; }
+  .night.light-scheme { background:  #eee; color: black; }
+}
+```
+
+那在`js`中如何检测呢？还是有方法的，使用`window.matchMedia`来检测
+
+```js
+const darkMode = window.matchMedia('(prefers-color-scheme: dark)');
+const lightMode = window.matchMedia('(prefers-color-scheme: light)');
+console.log(darkMode);
+console.log(lightMode);
+```
+
+### 前端如何下载base64字符串图片
+
+前端想下载图片，如果后端返回了`base64`字符，没有返回文件流的话，改如何实现下载？
+
+首先要把base64字符串转blob
+
+```js
+function base64ToBlob(base64, type) {
+  const byteCharacters = atob(base64); // 解码
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const buffer = Uint8Array.from(byteNumbers);
+  const blob = new Blob([buffer], { type });
+  return blob;
+}
+```
+
+然后再把`blob`转成`blob:URL`, a标签下载`blob:URL`即可
+
+```js
+function downloadBlob(blob) {
+  const aTag = document.createElement('a');
+  aTag.download = '';
+  const blobUrl = URL.createObjectURL(blob);
+  aTag.href = blobUrl;
+  aTag.click();
+  URL.revokeObjectURL(blobUrl);
+}
+```
 
 <ToTop/>
