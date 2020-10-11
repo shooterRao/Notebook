@@ -782,13 +782,25 @@ stream.on('end', function handleStreamEnd() {
 
 ```css
 @media (prefers-color-scheme: dark) {
-  .day.dark-scheme   { background:  #333; color: white; }
-  .night.dark-scheme { background: black; color:  #ddd; }
+  .day.dark-scheme {
+    background: #333;
+    color: white;
+  }
+  .night.dark-scheme {
+    background: black;
+    color: #ddd;
+  }
 }
 
 @media (prefers-color-scheme: light) {
-  .day.light-scheme   { background: white; color:  #555; }
-  .night.light-scheme { background:  #eee; color: black; }
+  .day.light-scheme {
+    background: white;
+    color: #555;
+  }
+  .night.light-scheme {
+    background: #eee;
+    color: black;
+  }
 }
 ```
 
@@ -801,11 +813,11 @@ console.log(darkMode);
 console.log(lightMode);
 ```
 
-### 前端如何下载base64字符串图片
+### 前端如何下载 base64 字符串图片
 
 前端想下载图片，如果后端返回了`base64`字符，没有返回文件流的话，改如何实现下载？
 
-首先要把base64字符串转blob
+首先要把 base64 字符串转 blob
 
 ```js
 function base64ToBlob(base64, type) {
@@ -820,7 +832,7 @@ function base64ToBlob(base64, type) {
 }
 ```
 
-然后再把`blob`转成`blob:URL`, a标签下载`blob:URL`即可
+然后再把`blob`转成`blob:URL`, a 标签下载`blob:URL`即可
 
 ```js
 function downloadBlob(blob) {
@@ -831,6 +843,58 @@ function downloadBlob(blob) {
   aTag.click();
   URL.revokeObjectURL(blobUrl);
 }
+```
+
+### 生成区间的随机数
+
+```js
+function getRandomIntInclusive(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+```
+
+### chrome 开启 pause on exceptions
+
+在`sources`面板中可以开启`pause on exceptions`功能，这个功能可以在代码出现异常的自动打上断点，可以很方便的排查未捕获错误发生的位置。
+
+## 十月
+
+### 查看项目 node_modules 文件夹大小
+
+unix 和 linux 系统使用`du -hd 0 node_modules`即可
+
+`du -hd 1 node_modules`可以查看里面每个文件夹的文件大小
+
+### vue-devtool 无法显示使用 `$mount` 动态挂载的组件解决方法
+
+类似这种情况
+
+```html
+<div id="app">
+  <span id="component"></span>
+</div>
+
+<script>
+  const root = new Vue().$mount('#app');
+
+  const MyComponent = Vue.extend({ name: 'component' });
+  new MyComponent().$mount('#component'); // 动态挂载组件
+</script>
+```
+
+可以看到 id 为`component`的组件是动态挂载上去的，这种情况在**vue-devtool**中无法显示这个子组件，只会显示`root`组件，为什么呢？主要是动态挂载的组件和 root 组件没有形成父子关系，因为 vue 已经初始化完成，所以需要手动声明下他们的父子关系，解决方法如下：
+
+```js
+const MyComponent = Vue.extend({ name: 'component' });
+new MyComponent({
+  parent: root // 声明父子关系
+}).$mount('#component');
+
+// 或者用这种方法也行
+MyComponent.$parent = root;
+root.$children.push(MyComponent);
 ```
 
 <ToTop/>
