@@ -889,12 +889,104 @@ unix 和 linux 系统使用`du -hd 0 node_modules`即可
 ```js
 const MyComponent = Vue.extend({ name: 'component' });
 new MyComponent({
-  parent: root // 声明父子关系
+  parent: root, // 声明父子关系
 }).$mount('#component');
 
 // 或者用这种方法也行
 MyComponent.$parent = root;
 root.$children.push(MyComponent);
+```
+
+### 本地图片预览
+
+本地图片预览，在 type 为 file 的 input 标签上传触发 onchange 事件发生后，使用 FileReader 即可实现
+
+一种是使用`data:URL`base64 展示，不过这种长度浏览器有限制
+
+```js
+const reader = new FileReader();
+reader.onload = function() {
+  const output = document.querySelector('#preview');
+  output.src = reader.result;
+};
+reader.readAsDataURL(file);
+```
+
+另一种是使用`blob:URL`
+
+```js
+const reader = new FileReader();
+reader.onload = function() {
+  const output = document.querySelector('#preview');
+  const blob = new Blob([reader.result], { type: 'image/png' });
+  const blobUrl = URL.createObjectURL(blob);
+  output.src = blobUrl;
+  queueMicrotask(() => URL.revokeObjectURL(blobUrl)); // 异步 revoke
+};
+reader.readAsArrayBuffer(file);
+```
+
+### nginx 开启负载均衡
+
+使用`proxy_pass`和`upstream`可以开启负载均衡
+
+```
+http {
+  upstream site {
+    server 192.168.0.1;
+    server 192.168.0.2;
+    server 192.168.0.3;
+  }
+
+  server {
+    listen 80;
+    location / {
+      proxy_pass http://site;
+    }
+  }
+}
+```
+
+负载均衡有4种模式
+
+- 轮询
+
+默认使用的方式，按服务器配置节点顺序轮询
+
+- 加权轮询
+
+```
+upstream site {
+  server 192.168.0.1 weight=1;
+  server 192.168.0.2 weight=2;
+  server 192.168.0.3 weight=3;
+}
+```
+
+- ip_hash
+
+对ip地址进行hash，这样用户就会在固定的服务器上请求，利于缓存和进行接口测试
+
+```
+upstream site {
+  server 192.168.0.1;
+  server 192.168.0.2;
+  server 192.168.0.3;
+  ip_hash;
+}
+```
+
+- least_conn;
+
+优先选择连接数量最少的服务器负载
+
+```
+upstream site {
+  server 192.168.0.1;
+  server 192.168.0.2;
+  server 192.168.0.3;
+  least_conn;
+}
 ```
 
 <ToTop/>
