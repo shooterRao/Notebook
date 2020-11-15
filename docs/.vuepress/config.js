@@ -40,12 +40,19 @@ module.exports = {
           ]
         },
         {
-          title: "arcgis",
+          title: "interview",
           collapsable: false,
           children: [
-            "arcgis"
+            "interview"
           ]
-        }
+        },
+        // {
+        //   title: "arcgis",
+        //   collapsable: false,
+        //   children: [
+        //     "arcgis"
+        //   ]
+        // }
       ],
       "/lint/": [
         {

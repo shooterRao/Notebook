@@ -947,7 +947,7 @@ http {
 }
 ```
 
-负载均衡有4种模式
+负载均衡有 4 种模式
 
 - 轮询
 
@@ -965,7 +965,7 @@ upstream site {
 
 - ip_hash
 
-对ip地址进行hash，这样用户就会在固定的服务器上请求，利于缓存和进行接口测试
+对 ip 地址进行 hash，这样用户就会在固定的服务器上请求，利于缓存和进行接口测试
 
 ```
 upstream site {
@@ -988,5 +988,69 @@ upstream site {
   least_conn;
 }
 ```
+
+### 一行代码实现评分组件
+
+```js
+function genRate(rate) {
+  return '★★★★★☆☆☆☆☆'.slice(5 - rate, 10 - rate);
+}
+```
+
+## 十一月
+
+### nodejs 一些路径常识
+
+```js
+const path = require('path');
+
+console.log(__dirname); // 当前文件执行路径
+console.log(process.cwd()); // 当前程序运行路径，也就是在哪开始 node xxx 的
+
+// path.resolve()方法可以将多个路径解析为一个规范化的绝对路径
+// path.join()方法可以连接任意多个路径字符串
+
+const path1 = path.resolve('/a/b', '/c/d');
+console.log(path1); // /c/d
+
+const path2 = path.join('/a/b', '/c/d');
+console.log(path2); // /a/b/c/d
+```
+
+### 在 node 中不能使用`exports=xxx`的原因
+
+在编译过程中，node 对获取的 javaScript 文件内容进行了头尾包装
+
+```js
+(function(exports, require, module, __filename, __dirname) {
+  // exports其实是module.exports的一个引用，如果你直接对exports进行赋值，那module.exports的值是不会改变的
+  // 最终导出的也是module.exports的值
+  // 所以尽量使用 module.exports = xxx
+})(module.exports, require, module, __filename, __dirname);
+
+return module.exports;
+```
+
+### isNaN 和 Number.isNaN 的区别
+
+isNaN会把参数转为数值，任何不能被转换为数值的值都会返回true，所以非数字值传入会返回，不过
+
+```js
+isNaN(undefined) === true;
+```
+
+这是因为`Number(undefined)`的值为`NaN`
+
+所以，这会影响 NaN 的判断
+
+`Number.isNaN`会先判断传入的值是不是数字，是数字再进行`NaN`判断
+
+```js
+Number.isNaN = Number.isNaN || function(value) {
+  return typeof value === 'number' && isNaN(value);
+}
+```
+
+所以使用`Number.isNaN`判断`NaN`更为准确
 
 <ToTop/>
