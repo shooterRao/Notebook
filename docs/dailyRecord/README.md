@@ -1053,4 +1053,291 @@ Number.isNaN = Number.isNaN || function(value) {
 
 所以使用`Number.isNaN`判断`NaN`更为准确
 
+### chrome devtool network 请求时序信息
+
+- Queueing: 浏览器在以下情况下将请求排队：
+              有更高优先级的请求。
+              已为该来源打开了六个TCP连接，这是限制。仅适用于HTTP / 1.0和HTTP / 1.1。
+              浏览器正在磁盘缓存中短暂分配空间
+- Stalled: 从TCP连接建立完成，到真正可以传输数据之间的时间差，此时间包括代理协商时间
+- DNS Lookup: 浏览器解析请求IP地址时间，也就是DNS查找时间
+- Initial connection: 浏览器进行TCP握手/重试/协商SSL花费的时间
+- Proxy negotiation: 浏览器与代理服务器协商请求的时间
+- Request sent: 正在发送请求
+- ServiceWorker Preparation: 准备ServiceWorker
+- Request to ServiceWorker: 向ServiceWorker发送请求
+- Waiting (TTFB): 发送请求到接收到响应第一个字节的时间总和。TTFB代表到第一个字节的时间。包含一次往返延迟和服务器准备响应所花费的时间
+- Content Download: 接收响应数据所花费的时间
+- Receiving Push: 浏览器正在通过HTTP/2服务器推送接收此响应的数据
+- Reading Push: 浏览器正在读取先前接收的本地数据
+
+### 关于vue的key几个问题讨论
+
+- 为什么v-for要加key？
+
+答：为了复用旧节点vnode，避免组件的重新创建和销毁，提高性能。因为判断是否为同个节点sameVnode函数，有一项是根据key来进行判断的，如果没有key，那就等于全部组件节点都要重新创建和销毁，如果提供了key，新旧节点是一样，最多就移动下位置就可以了。
+
+- 为什么不要用索引index、随机数当key？
+
+答：同样是无法达到性能上的优化，有几种情况，分点讨论
+
+1、如果渲染数组的顺序翻转，index值虽然不会变，节点内容改变了，如果是纯标签`<li>`这些，vue就直接改变元素内容，但是，如果是组件，有props的情况下，diff过程会发现props的改变，然后触发组件的视图重新渲染，必然会导致dom的操作。
+
+2、如果是在数组`[1,2,3]`中插入一个值，变成`[1,4,2,3]`，那么之前`2,3`组件的索引(key)由`1,2`变成`2,3`，key变了，sameVnode肯定为false，本来只需要新建1个组件，现在变成要新建3个，更新成本增加。
+
+3、看看这种情况
+
+```vue
+<div id="app">
+ <ul>
+  <li v-for="(val, idx) in arr" :key="idx">
+   <comp :val="idx"/>
+  </li>
+  <button @click="test">测试</button>
+ </ul>
+</div>
+<script>
+const app = new Vue({
+  el: '#app',
+  data() {
+  return {
+   arr: [1,2,3]
+  	}
+  },
+  methods: {
+   test() {
+    this.arr.splice(0,1);
+   }
+  },
+  components: {
+   comp: {
+    props: ['val'],
+    template: `<span>{{val}}</span>`
+   }
+  }
+});
+</script>
+```
+
+如果是数组`[1,2,3]`，使用`splice(0,1)`删除第一个节点，之前节点索引key为`[1,2,3] -> 0,1,2`，现在变成`[2,3] -> 0,1`，经过vue的比较逻辑，因为key都有`0,1`，所以vue会认为前面2个节点都没变，变得是少了key为2的节点，也就是最后一个，所以前面2个节点直接复用，在视图中你会发现vue就把最后一个节点给删了。
+
+但是，如果你直接使用`<li v-for="(val, idx) in arr" :key="idx">{{idx}}</li>`，你会察觉不到是删了最后一个节点，因为vue在diff过程中，发现了`li`是文本节点，在`patchVnode`函数有段逻辑
+
+```js
+if (oldVnode.text !== vnode.text) {
+ nodeOps.setTextContent(elm, vnode.text)
+}
+```
+
+`[1,2,3] -> [2,3]`，数组文本改变，直接更新dom，所以你无法察觉，但是底层是删除了最后一个元素，所以啊，还是给一个稳定的id做key吧~
+
+- key用随机数的情况
+
+key用随机数的话，这样新旧vnode的key全都不一样，很尴尬，vue直接判断全都不是sameVnode，全部重头再来~
+
+### vue diff算法相关分析
+
+源码`core/vdom/patch.js`
+
+为什么要diff？
+
+减少dom的更新量，找到最小差异部分的dom，也就是尽可能的复用旧节点，最后只更新新的部分即可，节省dom的新增和删除等操作
+
+新旧节点比较流程：
+
+前置条件为sameVnode，则新旧节点相同，然后再去diff它们的子节点
+
+如何判断相同节点？
+
+源码是这样子的
+
+```js
+function sameVnode (a, b) {
+  return (
+    a.key === b.key && (
+      (
+        a.tag === b.tag &&
+        a.isComment === b.isComment &&
+        isDef(a.data) === isDef(b.data) &&
+        sameInputType(a, b)
+      ) || (
+        isTrue(a.isAsyncPlaceholder) &&
+        a.asyncFactory === b.asyncFactory &&
+        isUndef(b.asyncFactory.error)
+      )
+    )
+  )
+}
+```
+
+原理主要是判断vnode的`key`、`tag`、`是否是注释节点`、`是否有data`、`是否为相同的input type`
+
+接着，看看patch函数，也就是`Vue.prototype.__patch__`
+
+```js
+function patch (oldVnode, vnode, hydrating, removeOnly) {
+    if (isUndef(vnode)) {
+      if (isDef(oldVnode)) invokeDestroyHook(oldVnode)
+      return
+    }
+
+    let isInitialPatch = false
+    const insertedVnodeQueue = []
+
+    // 如果没有旧节点，直接生成新节点
+    if (isUndef(oldVnode)) {
+      // empty mount (likely as component), create new root element
+      isInitialPatch = true
+      createElm(vnode, insertedVnodeQueue)
+    } else {
+      const isRealElement = isDef(oldVnode.nodeType)
+      // 如果是一样的vnode，则比较存在的根节点
+      if (!isRealElement && sameVnode(oldVnode, vnode)) {
+        // patch existing root node
+        patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
+      } else {
+        if (isRealElement) {
+          // mounting to a real element
+          // check if this is server-rendered content and if we can perform
+          // a successful hydration.
+          if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
+            oldVnode.removeAttribute(SSR_ATTR)
+            hydrating = true
+          }
+          if (isTrue(hydrating)) {
+            if (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
+              invokeInsertHook(vnode, insertedVnodeQueue, true)
+              return oldVnode
+            } else if (process.env.NODE_ENV !== 'production') {
+              warn(
+                'The client-side rendered virtual DOM tree is not matching ' +
+                'server-rendered content. This is likely caused by incorrect ' +
+                'HTML markup, for example nesting block-level elements inside ' +
+                '<p>, or missing <tbody>. Bailing hydration and performing ' +
+                'full client-side render.'
+              )
+            }
+          }
+          // either not server-rendered, or hydration failed.
+          // create an empty node and replace it
+          oldVnode = emptyNodeAt(oldVnode)
+        }
+
+        // replacing existing element
+        const oldElm = oldVnode.elm
+        const parentElm = nodeOps.parentNode(oldElm)
+
+        // create new node
+        // 创建新节点
+        createElm(
+          vnode,
+          insertedVnodeQueue,
+          // extremely rare edge case: do not insert if old element is in a
+          // leaving transition. Only happens when combining transition +
+          // keep-alive + HOCs. (#4590)
+          oldElm._leaveCb ? null : parentElm,
+          nodeOps.nextSibling(oldElm)
+        )
+
+        // update parent placeholder node element, recursively
+        if (isDef(vnode.parent)) {
+          let ancestor = vnode.parent
+          const patchable = isPatchable(vnode)
+          while (ancestor) {
+            for (let i = 0; i < cbs.destroy.length; ++i) {
+              cbs.destroy[i](ancestor)
+            }
+            ancestor.elm = vnode.elm
+            if (patchable) {
+              for (let i = 0; i < cbs.create.length; ++i) {
+                cbs.create[i](emptyNode, ancestor)
+              }
+              // #6513
+              // invoke insert hooks that may have been merged by create hooks.
+              // e.g. for directives that uses the "inserted" hook.
+              const insert = ancestor.data.hook.insert
+              if (insert.merged) {
+                // start at index 1 to avoid re-invoking component mounted hook
+                for (let i = 1; i < insert.fns.length; i++) {
+                  insert.fns[i]()
+                }
+              }
+            } else {
+              registerRef(ancestor)
+            }
+            ancestor = ancestor.parent
+          }
+        }
+
+        // destroy old node
+        // 销毁旧节点
+        if (isDef(parentElm)) {
+          removeVnodes([oldVnode], 0, 0)
+        } else if (isDef(oldVnode.tag)) {
+          invokeDestroyHook(oldVnode)
+        }
+      }
+    }
+
+    invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch)
+    // vm.$el
+    return vnode.elm
+  }
+```
+
+源码太长，精简一下
+
+```js
+function patch(oldVnode, vnode) {
+  if (!oldVnode) {
+    createElm(vnode);
+  } else if (sameVnode(oldVnode, vnode)) {
+    patchVnode(oldVnode, vnode);
+  } else {
+    createElm(vnode);
+    removeVnodes(oldVnode);
+  }
+  
+  return vnode.elm;
+}
+```
+
+patch函数其实就是分为三个流程
+
+1、没有旧节点，直接全部新建
+
+2、旧节点和新节点自身一样，则去比较它们的子节点
+
+3、旧节点和新节点不一样，则创建新节点，删除旧节点
+
+第二个流程中，子节点的diff（新旧节点必须是sameVnode）
+
+比较新旧节点的子节点，核心就是`updateChildren`函数，循环对比
+
+简单概况就是：
+
+1、先找到不需要移动的相同节点（新头旧头、新尾旧尾判断），消耗最小
+
+2、再找相同但是需要移动的节点（新头旧尾、新尾旧头、单个查找），消耗第二小
+
+3、最后找不到，才会去新建删除节点，保底处理
+
+再细说下：
+
+1、旧头和新头比较，如果一样则不移动
+
+2、旧尾和旧尾比较，如果一样则不移动
+
+3、旧头和新尾比较，如果一样则操作dom，把旧头移动到尾部
+
+4、旧尾和新头比较，如果一样则操作dom，把旧尾移动到头部
+
+5、拿新节点去旧子节点数组中遍历，存在且sameNode为true就移动旧节点，不存在就新建节点
+
+6、如果新子节点遍历完了，旧子节点有剩余，让dom逐个删除旧节点
+
+7、如果旧子节点遍历完了，新子节点有剩余，全部新建子节点
+
+这样diff的原因，就是为了更高效找到和新节点一样的旧节点，然后只需要移动位置就可以了，避免了重新创建/删除dom
+
 <ToTop/>

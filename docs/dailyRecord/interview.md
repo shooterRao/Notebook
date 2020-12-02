@@ -191,44 +191,35 @@ function _new(Constructor, ...args) {
 
 ```js
 function deepClone(obj) {
-    // 非 object 或者为 null，直接返回
-    if (typeof obj !== 'object' || obj === null) {
-      return obj
-    }
-    
-    let copy = {}
-    
-    if (Array.isArray(obj)) {
-      copy = []
-    }
-    
-    
-    for (let key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        // 递归
-        copy[key] = deepClone(obj[key])
-      }
-    }
-    
-    return copy
-    
+  if (typeof obj !== 'object' || obj === null) return obj;
+  
+  let copy = {};
+  
+  if (Array.isArray(obj)) {
+   	copy = [];
   }
+  
+  for (const [key, value] of (Array.isArray(obj) ? obj.entries() : Object.entries(obj))) {
+    copy[key] = deepClone(value);
+  }
+  
+  return copy;
+}
 ```
 
 #### 浅拷贝
 
 ```js
-var __assign = Object.assign || function(t) {
-	for (var i = 1, n = arguments.length; i < n; i++) {
-		var s = arguments[i];
-    for (var p in s) {
-      if (Object.prototype.hasOwnProperty.call(s, p)) {
-        t[p] = s[p];
-       }
-     }
+const extend = Object.assign || ((obj, ...args) => {
+  if (args.length !== 0) {
+    for (const source of args) {
+      for (const [key, value] of Object.entries(source)) {
+        obj[key] = value;
+      }
+    }
   }
-  return t;
-};
+   return obj;
+ })
 ```
 
 
@@ -420,6 +411,18 @@ var B = (function(_super) {
 
 
 
+### 模块化
+
+IFEE
+
+AMD
+
+Commomjs
+
+EsModule
+
+
+
 ## 网络
 
 ### 缓存策略
@@ -498,7 +501,17 @@ Date指的是响应生成的时间，请求经过代理服务器时, 返回的Da
 
 
 
-###  POST和GET的区别
+###  GET和POST的区别
+
+get和post没有本质上的区别，只有报文的形式不同
+
+get和post是http协议中的两种，无论是get还是post，用的都是一种传输协议，在传输上，其实没有区别，get请求也可以传输body，只不过被浏览器禁止了。
+
+不过要说区别，主要是规范上的区别
+
+下面这些都是基于规范上的区别
+
+- GET是拿数据，POST是提交数据
 
 - GET在浏览器回退时时无害的，而POST会再次提交请求
 - GET产生URL地址可以被收藏，而POST不可以
@@ -576,7 +589,15 @@ HTTP协议采用“请求-应答”模式，当使用普通模式，即非Keep-A
 
 当使用Keep-Alive模式（又称持久连接、连接重用）时，Keep-Alive功能使客户端到服务端的连接持续有效，当出现对服务器的后续请求时，Keep-Alive功能避免了建立或者重新建立连接
 
-这个Keep-Alive持久连接技术要HTTP的1.1版本才支持，其1.0版本都不支持
+
+
+### 一个TCP连接能发几个http请求
+
+http1.0：一个tcp连接只能发一个http请求
+
+http1.1：默认开启Connection:keep-alive，一个tcp连接可以发多个http请求，但是多个请求是串行执行
+
+http2.0：引入了多路复用和二进制分帧，一个tcp连接可以并发多个http请求，请求和响应是并行执行
 
 
 
@@ -645,11 +666,124 @@ axios.get('/get').then(res => {
 
 ### HTTP1.0/1.1/2.0区别
 
+http1.0特性
 
+- 无状态：服务器不跟踪不记录请求过的状态
+- 无连接：浏览器每次请求都需要建立tcp连接
+
+无状态
+
+对于无状态的特性可以借助cookie/session机制来做身份认证和状态记录
+
+无连接
+
+无连接导致的性能缺陷有两种：
+
+**无法复用连接**
+每次发送请求，都需要进行一次tcp连接（即3次握手4次挥手），使得网络的利用率非常低
+
+**队头阻塞**
+
+http1.0规定在前一个请求响应到达之后下一个请求才能发送，如果前一个阻塞，后面的请求也给阻塞的
+
+Http1.1也存在队头阻塞的问题，无法同时处理超过一小批的请求（通常一次处理6个请求，但因浏览器而导）
+
+![image-20201124154038353](/Users/raojw/study/Front-End/git-store/Notebook/docs/dailyRecord/img/image-20201124154038353.png)
+
+http1.1特性
+
+为了解决http1.0的性能缺陷，http1.1出现了
+
+http1.1特性：
+
+- 长连接：新增Connection字段，可以设置keep-alive值保持连接不断开
+- 管道化：基于上面长连接的基础，管道化可以不等第一个请求响应继续发送后面的请求，但响应的顺序还是按照请求的顺序返回
+- 缓存处理：新增字段cache-control
+- 断点传输：增加range头域，允许只请求资源的某个部分，返回码是206
+
+长连接
+
+http1.1默认保持长连接，数据传输完成保持tcp连接不断开,继续用这个通道传输数据
+
+管道化
+
+基于长连接的基础，我们先看没有管道化请求响应：
+
+tcp没有断开，用的同一个通道
+
+```
+请求1 > 响应1 --> 请求2 > 响应2 --> 请求3 > 响应3
+```
+
+管道化的请求响应：
+
+```
+请求1 --> 请求2 --> 请求3 > 响应1 --> 响应2 --> 响应3
+```
+
+即使服务器先准备好响应2,也是按照请求顺序先返回响应1
+
+虽然管道化，可以一次发送多个请求，但是响应仍是顺序返回，仍然无法解决队头阻塞的问题
+
+缓存处理
+
+HTTP1.0缓存使用Expires和header里的Last-Modified，HTTP2.0则增加了Cache-Control和Etag
+
+断点传输
+
+在上传/下载资源时，如果资源过大，将其分割为多个部分，分别上传/下载，如果遇到网络故障，可以从已经上传/下载好的地方继续请求，不用从头开始，提高效率
+
+在 Header 里两个参数实现的，客户端发请求时对应的是 Range 服务器端响应时对应的是 Content-Range
+
+http2.0特性
+
+- 二进制分帧：将所有传输的信息分割为更小的消息和帧,并对它们采用二进制格式的编码
+- 多路复用： 一个TCP连接可以并发处理多个请求，基于二进制分帧，在同一域名下所有访问都是从同一个tcp连接中走，http消息被分解为独立的帧，乱序发送，服务端根据标识符和首部将消息重新组装起来
+- 头部压缩：压缩HTTP请求和响应的首部
+- 服务器推送：服务器可以额外的向客户端推送资源，而无需客户端明确的请求
+
+多路复用
+
+在“流”的层面上看，消息是一些有序的“帧”序列，而在“连接”的层面上看，消息却是乱序收发的“帧”。多个请求 / 响应之间没有了顺序关系，不需要排队等待，也就不会再出现“队头阻塞”问题，降低了延迟，大幅度提高了连接的利用率
+
+![](https://static001.geekbang.org/resource/image/d8/bc/d8fd32a4d044f2078b3a260e4478c5bc.png)
+
+区别
+
+1. http1.0 到http1.1的主要区别，就是从无连接到长连接
+2. http2.0对比1.X版本主要区别就是多路复用
+
+
+
+HTTP2.0的多路复用和HTTP1.X中的长连接复用有什么区别？
+
+HTTP/1.1 Pipeling解决方式为，若干个请求排队串行化单线程处理，后面的请求等待前面请求的返回才能获得执行机会，一旦有某请求超时等，后续请求只能被阻塞，毫无办法，也就是人们常说的线头阻塞；
+
+HTTP/2多个请求可同时在一个连接上并行执行。某个请求任务耗时严重，不会影响到其它连接的正常执行；
 
 
 
 ### HTTPS
+
+HTTP是明文传输，所以不安全
+
+HTTPS的语法、语义仍然是HTTP，但把下层的协议由TCP/IP换成了SSL/TLS
+
+TLS实际上SSL改名而来
+
+对称加密：
+
+对称加密就是两边拥有相同的秘钥，两边都知道如何将密文加密解密
+
+非对称加密：
+
+有公钥和私钥之分，公钥加密，私钥解密
+
+![](https://static001.geekbang.org/resource/image/89/17/89344c2e493600b486d5349a84318417.png)
+
+
+
+
 
 
 
@@ -683,7 +817,13 @@ axios.get('/get').then(res => {
 
 3、阻止第三方网站请求接口
 
-4、请求时附带验证信息
+4、同域请求时附带验证信息token（axios的做法）
+
+5、浏览器开启SameSite属性，跨域不能传cookie，服务端也可以设置
+
+6、服务端开启http-only，脚本无法访问cookie
+
+如果攻击者有权限在本域发布评论（含链接、图片等，统称UGC），那么它可以直接在本域发起攻击，这种情况下同源策略无法达到防护的作用。防止同源CSRF就必须使用token验证的方式。
 
 
 
@@ -723,6 +863,37 @@ w3c盒模型 content-box
 IE盒模型 border-box
 
 属性width、height包含border和padding
+
+### flex
+
+flex简写属性包括
+
+- flex-grow 初始值为0
+- flex-shrink 初始值为1
+- flex-basis  初始值auto
+
+单值语法：
+
+- flex number:  flex number 1 0
+
+- flex: initial: flex 0 1 auto
+- flex: auto: flex 1 1 auto
+- flex: none: flex 0 0 auto
+
+双值语法: 
+
+第一个值必须为一个无单位数，并且它会被当作 `<flex-grow>` 的值。第二个值必须为以下之一：
+
+- 一个无单位数：它会被当作 `<flex-shrink>` 的值。
+- 一个有效的宽度值: 它会被当作 `<flex-basis>` 的值。
+
+三值语法:
+
+- 第一个值必须为一个无单位数，并且它会被当作 `<flex-grow>` 的值。
+- 第二个值必须为一个无单位数，并且它会被当作 `<flex-shrink>` 的值。
+- 第三个值必须为一个有效的宽度值， 并且它会被当作 `<flex-basis>` 的值。
+
+
 
 ## vue
 
@@ -810,63 +981,580 @@ compA.data === compB.data; // false
 
 
 
-### vue为什么要使用异步更新队列
+### nextTick
+
+将回调推迟到下一个 DOM 更新周期之后执行。在更改了一些数据以等待 DOM 更新后立即使用它。
+
+Vue 在内部尝试对异步队列使用原生的 `Promise.then` 和 `MessageChannel`，如果执行环境不支持，会采用 `setTimeout(fn, 0)` 代替
+
+源码
+
+```js
+export function nextTick (cb?: Function, ctx?: Object) {
+  let _resolve
+  // 加入到队列中
+  // 前面的都是更新dom的函数
+  // 所以执行完更新dom的函数，这个cb里就能拿到最新dom的值了
+  callbacks.push(() => {
+    if (cb) {
+      try {
+        cb.call(ctx)
+      } catch (e) {
+        handleError(e, ctx, 'nextTick')
+      }
+    } else if (_resolve) {
+      _resolve(ctx) // 执行then回调函数
+    }
+  })
+  // 上锁
+  // 多次使用nextTick只需把cb加入队列中
+  if (!pending) {
+    pending = true
+    timerFunc() // 异步执行
+  }
+  if (!cb && typeof Promise !== 'undefined') {
+    return new Promise(resolve => {
+      _resolve = resolve
+    })
+  }
+}
+```
+
+为什么`vm.data = 'new value'`之后，不能拿到最新的值？
+
+如果这么写，是不能拿到值的
+
+```js
+vm.data = 'new value';
+console.log(dom.data); // 旧值，dom异步更新
+```
+
+更新dom是异步的，所以上面写法不能拿到最新的值，所以必须使用nextTick来把`console.log(dom.data)`放到回调队列中后面，也就是dom更新函数的后面。
+
+```js
+div.innerHTML = '123';
+console.log(div.innerHTML); // '123'
+```
+
+
+
+vue为什么要使用异步更新队列？
+
+避免频繁操作dom，更新dom
+
+源于vue文档上的解释：Vue **异步**执行 DOM 更新。只要观察到数据变化，Vue 将开启一个队列，并缓冲在同一事件循环中发生的所有数据改变。如果同一个 watcher 被多次触发，只会被推入到队列中一次。这种在缓冲时去除重复数据对于避免不必要的计算和 DOM 操作上非常重要。然后，在下一个的事件循环“tick”中(也不一定是下一个事件循环，用了promise就是同个循环)，Vue 刷新队列并执行实际 (已去重的) 工作。
 
 当状态发生改变的时候，vue采用异步执行dom更新
 
 有篇文章写得很好，https://github.com/berwin/Blog/issues/22
 
-主要是为了性能优化，减少无用的dom更新
+主要是为了性能优化，减少无用的dom更新，例如
+
+```js
+vm.a = 1;
+vm.a = 2;
+vm.a = 3;
+```
+
+如果是每次数据改变，都要去更新dom的话，成本太高，其实用户要的只是最后一次更新，所以在同步任务中去用缓冲队列处理，然后通过异步来更新dom。
 
 Vue优先将渲染操作推迟到本轮事件循环的最后，如果执行环境不支持会降级到下一轮
 
-当同一轮事件循环中反复修改状态时，并不会反复向队列中添加相同的渲染操作
-
-
-
-### nextTick
-
-
-
-
-
-### 模板编译过程
-
-
+当同一轮事件循环中反复修改状态时，并不会反复向队列中添加相同的渲染操作，也就是render watcher
 
 
 
 ### Object.defineProperty 的缺陷
 
+无法监测通过下标方式修改数组和对象新增属性
+
+数组是通过改变数组的原型链，然后重写'push',  'pop',  'shift',  'unshift',  'splice',  'sort',  'reverse'这几个方法实现派发更新
+
+可以使用this.$set来解决这类问题
 
 
 
+### v-if和v-show
 
-### v-if和v-show区别
+这两者的区别主要是，v-if是不渲染dom的，v-show是会渲染dom，不过dom的display:none;
+
+再深入点说的话
+
+v-if会调用addIfCondition方法，生成vnode的时候会忽略对应节点，render的时候就不会渲染
+
+v-show会生成vnode，render的时候会渲染成真实节点，只是render过程中会在节点的属性中修改style值
 
 
 
+### 编译、渲染和更新过程
 
+首先谈下编译：
 
-### 渲染和更新过程
+模板解析为AST，优化AST，将AST转化成render function string，也就对应着parse、optimize、generate函数
 
+```js
+export const createCompiler = createCompilerCreator(function baseCompile (
+  template: string,
+  options: CompilerOptions
+): CompiledResult {
+  const ast = parse(template.trim(), options)
+  if (options.optimize !== false) {
+    optimize(ast, options)
+  }
+  const code = generate(ast, options)
+  return {
+    ast,
+    render: code.render,
+    staticRenderFns: code.staticRenderFns
+  }
+})
+```
 
+**parse**
+
+生成ast
+
+```js
+{
+    // 类型
+    type: 1,
+    // 标签
+    tag,
+    // 属性列表
+    attrsList: attrs,
+    // 属性映射
+    attrsMap: makeAttrsMap(attrs),
+    // 父节点
+    parent,
+    // 子节点
+    children: []
+}
+```
+
+**optimize**
+
+遍历递归每个ast节点，标记静态的节点，这些节点是不需要diff的
+
+**generate**
+
+接收ast，把ast转换成render字符串函数，比如`_c('div', [_c('span')])`
+
+执行render函数，生成vnode，挂载到dom上
+
+```js
+const vnode = vm._render();
+updateComponent = () => {
+ vm._update(vnode, hydrating)
+}
+
+vm._update = function() {
+  vm.$el = vm.__patch__(prevVnode, vnode); // 挂载dom
+}
+```
+
+顺便看看$forceUpdate
+
+原来$forceUpdate只会让当前组件的render watcher更新，仅仅影响实例本身和插入插槽内容的子组件，而不是所有子组件。
+
+```js
+Vue.prototype.$forceUpdate = function () {
+ const vm: Component = this;
+ if (vm._watcher) {
+   vm._watcher.update();
+  }
+}
+```
 
 
 
 ### diff算法
 
+源码`core/vdom/patch.js`
+
+为什么要diff？
+
+减少dom的更新量，找到最小差异部分的dom，也就是尽可能的复用旧节点，最后只更新新的部分即可，节省dom的新增和删除等操作
+
+新旧节点比较流程：
+
+前置条件为sameVnode，则新旧节点相同，然后再去diff它们的子节点
+
+如何判断相同节点？
+
+```js
+function sameVnode (a, b) {
+  return (
+    a.key === b.key && (
+      (
+        a.tag === b.tag &&
+        a.isComment === b.isComment &&
+        isDef(a.data) === isDef(b.data) &&
+        sameInputType(a, b)
+      ) || (
+        isTrue(a.isAsyncPlaceholder) &&
+        a.asyncFactory === b.asyncFactory &&
+        isUndef(b.asyncFactory.error)
+      )
+    )
+  )
+}
+```
+
+接着，看看patch函数，也就是`Vue.prototype.__patch__`
+
+```js
+function patch (oldVnode, vnode, hydrating, removeOnly) {
+    if (isUndef(vnode)) {
+      if (isDef(oldVnode)) invokeDestroyHook(oldVnode)
+      return
+    }
+
+    let isInitialPatch = false
+    const insertedVnodeQueue = []
+
+    // 如果没有旧节点，直接生成新节点
+    if (isUndef(oldVnode)) {
+      // empty mount (likely as component), create new root element
+      isInitialPatch = true
+      createElm(vnode, insertedVnodeQueue)
+    } else {
+      const isRealElement = isDef(oldVnode.nodeType)
+      // 如果是一样的vnode，则比较存在的根节点
+      if (!isRealElement && sameVnode(oldVnode, vnode)) {
+        // patch existing root node
+        patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
+      } else {
+        if (isRealElement) {
+          // mounting to a real element
+          // check if this is server-rendered content and if we can perform
+          // a successful hydration.
+          if (oldVnode.nodeType === 1 && oldVnode.hasAttribute(SSR_ATTR)) {
+            oldVnode.removeAttribute(SSR_ATTR)
+            hydrating = true
+          }
+          if (isTrue(hydrating)) {
+            if (hydrate(oldVnode, vnode, insertedVnodeQueue)) {
+              invokeInsertHook(vnode, insertedVnodeQueue, true)
+              return oldVnode
+            } else if (process.env.NODE_ENV !== 'production') {
+              warn(
+                'The client-side rendered virtual DOM tree is not matching ' +
+                'server-rendered content. This is likely caused by incorrect ' +
+                'HTML markup, for example nesting block-level elements inside ' +
+                '<p>, or missing <tbody>. Bailing hydration and performing ' +
+                'full client-side render.'
+              )
+            }
+          }
+          // either not server-rendered, or hydration failed.
+          // create an empty node and replace it
+          oldVnode = emptyNodeAt(oldVnode)
+        }
+
+        // replacing existing element
+        const oldElm = oldVnode.elm
+        const parentElm = nodeOps.parentNode(oldElm)
+
+        // create new node
+        // 创建新节点
+        createElm(
+          vnode,
+          insertedVnodeQueue,
+          // extremely rare edge case: do not insert if old element is in a
+          // leaving transition. Only happens when combining transition +
+          // keep-alive + HOCs. (#4590)
+          oldElm._leaveCb ? null : parentElm,
+          nodeOps.nextSibling(oldElm)
+        )
+
+        // update parent placeholder node element, recursively
+        if (isDef(vnode.parent)) {
+          let ancestor = vnode.parent
+          const patchable = isPatchable(vnode)
+          while (ancestor) {
+            for (let i = 0; i < cbs.destroy.length; ++i) {
+              cbs.destroy[i](ancestor)
+            }
+            ancestor.elm = vnode.elm
+            if (patchable) {
+              for (let i = 0; i < cbs.create.length; ++i) {
+                cbs.create[i](emptyNode, ancestor)
+              }
+              // #6513
+              // invoke insert hooks that may have been merged by create hooks.
+              // e.g. for directives that uses the "inserted" hook.
+              const insert = ancestor.data.hook.insert
+              if (insert.merged) {
+                // start at index 1 to avoid re-invoking component mounted hook
+                for (let i = 1; i < insert.fns.length; i++) {
+                  insert.fns[i]()
+                }
+              }
+            } else {
+              registerRef(ancestor)
+            }
+            ancestor = ancestor.parent
+          }
+        }
+
+        // destroy old node
+        // 销毁旧节点
+        if (isDef(parentElm)) {
+          removeVnodes([oldVnode], 0, 0)
+        } else if (isDef(oldVnode.tag)) {
+          invokeDestroyHook(oldVnode)
+        }
+      }
+    }
+
+    invokeInsertHook(vnode, insertedVnodeQueue, isInitialPatch)
+    // vm.$el
+    return vnode.elm
+  }
+```
+
+源码太长，精简一下
+
+```js
+function patch(oldVnode, vnode) {
+  if (!oldVnode) {
+    createElm(vnode);
+  } else if (sameVnode(oldVnode, vnode)) {
+    patchVnode(oldVnode, vnode);
+  } else {
+    createElm(vnode);
+    removeVnodes(oldVnode);
+  }
+  
+  return vnode.elm;
+}
+```
+
+patch函数其实就是分为三个流程
+
+1、没有旧节点，直接全部新建
+
+2、旧节点和新节点自身一样，则去比较它们的子节点
+
+3、旧节点和新节点不一样，则创建新节点，删除旧节点
+
+第二个流程中，子节点的diff（新旧节点必须是sameVnode）
+
+比较新旧节点的子节点，核心就是`updateChildren`函数，循环对比
+
+简单概况就是：
+
+1、先找到不需要移动的相同节点（新头旧头、新尾旧尾判断），消耗最小
+
+2、再找相同但是需要移动的节点（新头旧尾、新尾旧头、单个查找），消耗第二小
+
+3、最后找不到，才会去新建删除节点，保底处理
+
+再细说下：
+
+1、旧头和新头比较，如果一样则不移动
+
+2、旧尾和旧尾比较，如果一样则不移动
+
+3、旧头和新尾比较，如果一样则操作dom，把旧头移动到尾部
+
+4、旧尾和新头比较，如果一样则操作dom，把旧尾移动到头部
+
+5、拿新节点去旧子节点数组中遍历，存在且sameNode为true就移动旧节点，不存在就新建节点
+
+6、如果新子节点遍历完了，旧子节点有剩余，让dom逐个删除旧节点
+
+7、如果旧子节点遍历完了，新子节点有剩余，全部新建子节点
+
+这样diff的原因，就是为了更高效找到和新节点一样的旧节点，然后只需要移动位置就可以了，避免了重新创建/删除dom
+
+参考文章
+
+https://zhuanlan.zhihu.com/p/81752104
+
+https://ustbhuangyi.github.io/vue-analysis/v2/reactive/component-update.html
 
 
 
+抛出几个问题
+
+为什么v-for要加key？
+
+答：为了复用旧节点vnode，避免组件的重新创建和销毁，提高性能。因为判断是否为同个节点sameVnode函数，有一项是根据key来进行判断的，如果没有key，那就等于全部组件节点都要重新创建和销毁，如果提供了key，新旧节点是一样，最多就移动下位置就可以了。
+
+为什么不要用索引index、随机数当key？
+
+答：同样是无法达到性能上的优化，有几种情况，分点讨论
+
+1、如果渲染数组的顺序翻转，index值虽然不会变，节点内容改变了，如果是纯标签`<li>`这些，vue就直接改变元素内容，但是，如果是组件，有props的情况下，diff过程会发现props的改变，然后触发组件的视图重新渲染，必然会导致dom的操作。
+
+2、如果是在数组`[1,2,3]`中插入一个值，变成`[1,4,2,3]`，那么之前`2,3`组件的索引(key)由`1,2`变成`2,3`，key变了，sameVnode肯定为false，本来只需要新建1个组件，现在变成要新建3个，更新成本增加。
+
+3、看看这种情况
+
+```vue
+<div id="app">
+ <ul>
+  <li v-for="(val, idx) in arr" :key="idx">
+   <comp :val="idx"/>
+  </li>
+  <button @click="test">测试</button>
+ </ul>
+</div>
+<script>
+const app = new Vue({
+  el: '#app',
+  data() {
+  return {
+   arr: [1,2,3]
+  	}
+  },
+  methods: {
+   test() {
+    this.arr.splice(0,1);
+   }
+  },
+  components: {
+   comp: {
+    props: ['val'],
+    template: `<span>{{val}}</span>`
+   }
+  }
+});
+</script>
+```
+
+如果是数组`[1,2,3]`，使用`splice(0,1)`删除第一个节点，之前节点索引key为`[1,2,3] -> 0,1,2`，现在变成`[2,3] -> 0,1`，经过vue的比较逻辑，因为key都有`0,1`，所以vue会认为前面2个节点都没变，变得是少了key为2的节点，也就是最后一个，所以前面2个节点直接复用，在视图中你会发现vue就把最后一个节点给删了。
+
+但是，如果你直接使用`<li v-for="(val, idx) in arr" :key="idx">{{idx}}</li>`，你会察觉不到是删了最后一个节点，因为vue在diff过程中，发现了`li`是文本节点，在`patchVnode`函数有段逻辑
+
+```js
+if (oldVnode.text !== vnode.text) {
+ nodeOps.setTextContent(elm, vnode.text)
+}
+```
+
+`[1,2,3] -> [2,3]`，数组文本改变，直接更新dom，所以你无法察觉，但是底层是删除了最后一个元素，所以啊，还是给一个稳定的id做key吧~
+
+再说说随机数的情况
+
+用随机数的话，这样新旧vnode的key全都不一样，很尴尬，vue直接判断全都不是sameVnode，全部重头再来~
+
+### Vue._init
+
+看vue的_init函数分析vue初始化的时序
+
+在`new Vue()`中，会执行`this._init()`
+
+**beforeCreate**
+
+initLifecycle(vm) 初始化生命周期
+
+initEvents(vm) 初始化事件系统
+
+initRender(vm) 初始化render方法，例如$createElement
+
+**created**
+
+initInjections(vm) 初始化inject
+
+initState(vm) 初始化props、data、methods
+
+initProvide(vm) 初始化provide
+
+**beforeMount**
+
+完成模板编译，生成render函数
+
+**mounted**
+
+生成vnode
+
+更新dom完成挂载
+
+```js
+Vue.prototype._init = function (options?: Object) {
+    const vm: Component = this
+    // a uid
+    vm._uid = uid++
+
+    let startTag, endTag
+    /* istanbul ignore if */
+    if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
+      startTag = `vue-perf-start:${vm._uid}`
+      endTag = `vue-perf-end:${vm._uid}`
+      mark(startTag)
+    }
+
+    // a flag to avoid this being observed
+    // 标识该实例对象避免成为响应式对象
+    vm._isVue = true
+    // merge options
+    if (options && options._isComponent) {
+      // optimize internal component instantiation
+      // since dynamic options merging is pretty slow, and none of the
+      // internal component options needs special treatment.
+      initInternalComponent(vm, options)
+    } else {
+      vm.$options = mergeOptions(
+        resolveConstructorOptions(vm.constructor),
+        options || {},
+        vm
+      )
+    }
+    /* istanbul ignore else */
+    if (process.env.NODE_ENV !== 'production') {
+      initProxy(vm)
+    } else {
+      vm._renderProxy = vm
+    }
+    // expose real self
+    // 同步按顺序初始化
+    vm._self = vm
+    initLifecycle(vm) // 初始化生命周期
+    initEvents(vm) // 初始化事件
+    initRender(vm) // 初始化渲染器
+    callHook(vm, 'beforeCreate') // hook beforeCreate
+    initInjections(vm) // resolve injections before data/props
+    initState(vm) // 初始化 props、methods、data
+    initProvide(vm) // resolve provide after data/props
+    callHook(vm, 'created') // hook created，created生命周期data响应式对象、methods、props已经初始化完成
+
+    /* istanbul ignore if */
+    if (process.env.NODE_ENV !== 'production' && config.performance && mark) {
+      vm._name = formatComponentName(vm, false)
+      mark(endTag)
+      measure(`vue ${vm._name} init`, startTag, endTag)
+    }
+
+    // 挂载到dom上
+    if (vm.$options.el) {
+      vm.$mount(vm.$options.el)
+    }
+  }
+```
 
 
 
+### 父子组件生命周期执行顺序
 
+父组件先创建，然后子组件创建，子组件挂载，然后父组件挂载
+
+父beforeCreate->父created->父beforeMount->子beforeCreate->子created->子beforeMount->子mounted->父mounted
+
+更新过程
+
+父beforeUpdate->子beforeUpdate->子updated->父updated
+
+销毁过程
+
+父beforeDestroy->子beforeDestroy->子destroyed->父destroyed
 
 
 
 ## react
+
+useHook
 
 
 
@@ -878,7 +1566,11 @@ Vue优先将渲染操作推迟到本轮事件循环的最后，如果执行环�
 
 更容易上手，可以script标签方式引入
 
-template，也支持jsx
+虽然react也支持script引入，但是react不支持模板写法
+
+vue支持template，也支持jsx
+
+jsx都需要babel插件
 
 逻辑复用方式使用mixin，react现在不支持了
 
@@ -943,10 +1635,24 @@ eventBus 解绑事件、echarts实例dispose
 
 - 升级到vuecli3，vuecli3使用了webpack4，splitChunks 配合 preload-webpack-plugin 可以开启preload/prefetch 优化页面加载效率
 
+  ```js
+/* config.plugin('preload') */
+  new PreloadPlugin({
+rel: 'preload',
+  include: 'initial',
+  fileBlacklist: [/\.map$/, /hot-update\.js$/],
+  }),
+  /* config.plugin('prefetch') */
+  new PreloadPlugin({
+  rel: 'prefetch',
+  include: 'asyncChunks',
+  }),
+  ```
+  
   什么是 preload ? 和 prefetch 的区别
-
+  
   Prefetch(预加载)可以强制浏览器在不阻塞 document 的 [onload](https://developer.mozilla.org/en-US/docs/Web/API/GlobalEventHandlers/onload) 事件的情况下请求资源，告诉浏览器这个资源将来可能需要，但是什么时间加载这个资源是由浏览器来决定的。
-
+  
   preload 是告诉浏览器页面必定需要的资源，浏览器一定会加载这些资源，而 prefetch 是告诉浏览器页面可能需要的资源，浏览器不一定会加载这些资源，也就是，prefetch 是加速下一页的访问，而不是当前页面的访问。建议：对于当前页面很有必要的资源使用 preload，对于可能在将来的页面中使用的资源使用 prefetch，比如懒加载的资源适合用 prefetch，像 nodemodules 里面的库适合用 preload
   
 - prerender-spa-plugin 使用预渲染插件
@@ -1157,11 +1863,309 @@ function BreadthFirst(data) {
 
 
 
+### 链表
+
+
+
+
+
+### 队列
+
+### 
+
+
+
 ## webpack
 
-### `import moduleName from 'xxModule'`和`import('xxModule')`经过`webpack`编译打包后最终变成了什么？在浏览器中是怎么运行的？
+### 打包流程
 
-import经过webpack打包以后变成一些`Map`对象，`key`为模块路径，`value`为模块的可执行函数；
+- 合并`webpack.config.js`和命令行传递的参数，形成最终的配置
+- 解析配置，得到`entry`入口
+- 读取入口文件内容，通过`@babel/parse`将入口内容（code）转换成`ast`
+- 通过`@babel/traverse`遍历`ast`得到模块的各个依赖
+- 通过`@babel/core`（实际的转换工作是由`@babel/preset-env`来完成的）将`ast`转换成`es5 code`
+- 通过循环伪递归的方式拿到所有模块的所有依赖并都转换成`es5`
+
+
+
+### `import moduleName from 'xxModule'`
+
+import经过webpack打包以后变成一些`Map`对象，`key`为模块id，`value`为模块的可执行函数；
+
+例如index.js文件
+
+```js
+import m1 from './m1';
+
+m1();
+```
+
+会被打包成
+
+```js
+{
+	"./src/index.js":
+  
+(function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+var _m1__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./m1 */ "./src/m1.js");
+
+function init() {
+  // 拿到default执行
+  Object(_m1__WEBPACK_IMPORTED_MODULE_0__["default"])();
+}
+
+init();
+
+
+/***/ }),
+```
+
+
+
+### 异步模块打包执行流程
+
+当一个文件被异步加载，在`index.js`中这么写
+
+```js
+import(/*webpackChunkName: "async"*/'./async').then((res) => {
+  res.default();
+});
+```
+
+被webpack处理过后index.js的样子，剔除引导模板runtime
+
+```js
+(window["webpackJsonp"] = window["webpackJsonp"] || []).push([["app"],{
+
+/***/ "./src/index.js":
+/*!**********************!*\
+  !*** ./src/index.js ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+__webpack_require__.e(/*! import() | async */ "async")
+  // 需要被__webpack_require__加载
+  // __webpack_require__ 返回 module.exports
+  .then(__webpack_require__.bind(null, /*! ./async */ "./src/async.js"))
+  .then((res) => {
+  	res.default();
+	});
+
+
+/***/ })
+
+},[["./src/index.js","runtime"]]]);
+```
+
+出现2个关键字，一个`webpackJsonp`，一个`__webpack_require__.e`
+
+`webpackJson.push`其实已经被重写了，并不是`Array.prototype.push`，而是一个函数，叫`webpackJsonpCallback`，为什么叫`jsonpCallbak`?其实很好理解，异步的chunk是通过script标签加载的，跟jsonp原理一样。当异步chunk下载完后，首先就是执行这个`webpackJsonpCallback`函数，看看这个函数
+
+```js
+/******/ 	function webpackJsonpCallback(data) {
+            // 异步加载的文件中存放的需要安装的模块对应的 Chunk ID
+/******/ 		var chunkIds = data[0];
+            // 异步加载的文件中存放的需要安装的模块列表
+/******/ 		var moreModules = data[1];
+            // 在异步加载的文件中存放的需要安装的模块都安装成功后，需要执行的模块对应的 index
+/******/ 		var executeModules = data[2];
+/******/
+/******/ 		// add "moreModules" to the modules object,
+/******/ 		// then flag all "chunkIds" as loaded and fire callback
+/******/ 		var moduleId, chunkId, i = 0, resolves = [];
+/******/ 		for(;i < chunkIds.length; i++) {
+/******/ 			chunkId = chunkIds[i];
+/******/ 			if(Object.prototype.hasOwnProperty.call(installedChunks, chunkId) && installedChunks[chunkId]) {
+  							// installedChunks[chunkId][0] 就是 promise resolve 函数
+/******/ 				resolves.push(installedChunks[chunkId][0]);
+/******/ 			}
+              // 标记该chunk已经加载完成，0即完成
+/******/ 			installedChunks[chunkId] = 0;
+/******/ 		}
+            // 把所有的模块加入 modules 的对象中, 就是 __webpack_require__.m 对应的那个属性
+/******/ 		for(moduleId in moreModules) {
+/******/ 			if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
+/******/ 				modules[moduleId] = moreModules[moduleId];
+/******/ 			}
+/******/ 		}
+/******/ 		if(parentJsonpFunction) parentJsonpFunction(data);
+/******/    
+/******/ 		while(resolves.length) {
+/******/ 			resolves.shift()();
+/******/ 		}
+/******/
+/******/ 		// add entry modules from loaded chunk to deferred list
+/******/ 		deferredModules.push.apply(deferredModules, executeModules || []);
+/******/
+/******/ 		// run deferred modules when all chunks ready
+/******/ 		return checkDeferredModules();
+/******/ 	};
+```
+
+这个函数作用
+
+1、是用来标识该chunk加载完成，因为只有下载完才会执行这个callback函数
+
+2、把moreModules，也就是模块Map对象放到作用域modules数组中，不然`__webpack_require__`拿不到模块
+
+3、resolve`__webpack_require__.e`函数加载chunk返回的promise，通知`__webpack_require__`函数加载和执行模块
+
+4、链式调用promise，把module当参数，执行用户定义的then回调
+
+`__webpack_require__.e`简化代码，分析如下
+
+```js
+// 记录chunk状态
+// key: id, value: 状态
+// undefined: 未加载
+// 数组: 加载中
+// 0：已加载
+var installedChunks = {
+  
+}
+
+__webpack.require__.e = function requireEnsure(chunkId) {
+  var promises = []
+  
+  if (installedChunks[chunkId] !== 0) {
+    var promise = new new Promise(function(resolve, reject) {
+	 		installedChunks[chunkId] = [resolve, reject];
+ 		});
+    
+    promises.push(promise);
+  
+  	var script = document.createElement('script');
+  	script.charset = 'utf-8';
+  	script.timeout = 120;// 120s 过后就中断
+  
+  	script.src = jsonpScriptSrc(chunkId); // src加载
+  
+  	onScriptComplete = function (event) {
+    	clearTimeout(timeout);
+  	}
+  
+  	var timeout = setTimeout(function(){
+			console.error('timeout');
+		}, 120000);
+    
+    script.onerror = script.onload = onScriptComplete;
+    document.head.appendChild(script);
+  }
+    
+  	return Promise.all(promises);
+}
+```
+
+可以看到，这个函数主要作用是加载chunk，还有个chunk添加loading状态
+
+这边还漏了个地方没讲，就是打包后的`async.js`文件分析，以及加载`async.js`过程
+
+`async.js`文件
+
+```js
+function asyncModule() {
+  console.log('async module');
+}
+
+export default asyncModule;
+```
+
+打包之后
+
+```js
+(window["webpackJsonp"] = window["webpackJsonp"] || []).push([["async"],{
+
+/***/ "./src/async.js":
+/*!**********************!*\
+  !*** ./src/async.js ***!
+  \**********************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+function asyncModule() {
+  console.log('async module');
+}
+
+/* harmony default export */ __webpack_exports__["default"] = (asyncModule);
+
+/***/ })
+
+}]);
+```
+
+可以看到，webpack也是把`async.js`函数包装了一层，先用`webpackJsonpCallback`函数标识该chunk加载完成，再把`async.js`内容放到模块数组中，然后在`index.js`的打包文件中加载再执行
+
+执行`async.js`里的`asyncModule`函数是在`index.js`文件里面的，往上看打包后的`index.js`文件，有个逻辑，也就是then回调里面的
+
+```js
+__webpack_require__.bind(null, /*! ./async */ "./src/async.js")
+```
+
+其中，`async.js`模块内容是用`__webpack_require__`同步加载执行的，`__webpack_require__`函数是webpack加载模块的核心，先来看看这个函数源码
+
+```js
+function __webpack_require__(moduleId) {
+	// Check if module is in cache
+	if(installedModules[moduleId]) {
+		return installedModules[moduleId].exports;
+	}
+	// Create a new module (and put it into the cache)
+	var module = installedModules[moduleId] = {
+		i: moduleId,
+		l: false,
+		exports: {}
+	};
+
+	// Execute the module function
+  // 执行模块的函数体，也就是async打包后的包装函数
+ 	// modules就是存放所有webpack模块的地方
+	modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	// Flag the module as loaded
+	module.l = true;
+	// Return the exports of the module
+	return module.exports;
+}
+```
+
+加载的原理也很简单了，就是一行代码
+
+```js
+modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+```
+
+对应着`async.js`包装函数
+
+```js
+(function(module, __webpack_exports__, __webpack_require__) {}
+```
+
+所以，在异步模块加载之前，一定要把模块放到`modules`变量里面，然后在用`__webpack_require__`执行即可
+
+附上流程图
+
+![image-20201202181100446](/Users/raojw/study/Front-End/git-store/Notebook/docs/dailyRecord/img/image-20201202181100446.png)
+
+
+
+所有，完全可以让异步chunk在浏览器空闲的时候下载，因为这些chunk下载不需要先后固定顺序，可以用prefetch对某些异步路由进行提前下载，提供加载速度。
+
+看完源码不得不惊叹，这些加载过程不需要很多代码，就能把chunk之前完全解耦开，闭包玩得太妙了。
+
+
+
+### webpack模块在运行时是怎么存的？
+
+
+
+
+
+import经过webpack打包以后变成一些`Map`对象，`key`为模块id，`value`为模块的可执行函数；
 
 代码加载到浏览器以后从入口模块开始执行，其中执行的过程中，最重要的就是`webpack`定义的`__webpack_require__`函数，负责实际的模块加载并执行这些模块内容，返回执行结果，其实就是读取`Map`对象，然后执行相应的函数；
 
@@ -1169,9 +2173,146 @@ import经过webpack打包以后变成一些`Map`对象，`key`为模块路径，
 
 
 
+### module、chunk、bundle、moduleId、chunkId的区别
+
+module：一个文件就是一个模块，无论是esm还是commonjs，都是module
+
+chunk：把module源文件传到webpack进行打包时，webpack会根据文件引用关系生成chunk文件，不同的entry配置会生成不同的chunk的id，在webpack处理时的文件都可以称为chunk，每个chunk可以含有一个或多个module，包括懒加载的代码也可以叫chunk，打包后的代码叫chunk也可以
+
+bundle：可以理解为浏览器可以直接运行的文件
+
+moduleId：就是每个模块的id，可以是路径、数字或者hash值，模块加载器通过这些id进行加载
+
+chunkId：就是打包出来的js文件的id，比如`app.xxx.js`，这个文件的chunkId就是app
+
+
+
+### 持久化缓存方案
+
+js、css文件不能使用hash，图片、字体、svg文件可以使用hash
+
+css使用contentHash，使用chunkHash会使得跟其有css文件关联的js文件hash值都改变
+
+js现在也可以使用contentHash了，但是有些旧版本webpack是不支持的
+
+如果js用chunkHash的话，采用以下方案
+
+1、需要用HashedModuleIdsPlugin固定住moduleId(如果不使用，webpack则会使用自增的id，当增加或者删除module的时候，id就会发生变化，没有改过的文件的id也变了，缓存失效)，HashedModuleIdsPlugin是把路径hash化当成模块id
+
+2、使用NamedChunkPlugin+魔法注释来固定住chunkId
+
+到了webpack5.0，moduleId和chunkId问题都可以不用插件解决，直接使用
+
+```js
+module.exports = {
+ optimization:{
+  chunkIds: "deterministic”, // 在不同的编译中不变的短数字 id
+	moduleIds: "deterministic"
+ }
+}
+```
+
+还有一个很重要，但是vuecli却没内置的方案，也就是要把引导模板给提取出来
+
+为什么要提取？这边简单说下
+
+比如在vuecli创建的工程项目中，有一个懒加载路由`About.vue`，打包出来会有`app.contenthash.js`和`about.contenthash.js`，如果我修改了`About.vue`内容，打包出来的`about.contenthash.js`文件hash必然会变，但是你会发现，`app.contentHash.js`也跟着变了，如果在大型项目中这样搞，改了一个路由页面，导致`app.js`也变，这样就使得`app.js`缓存失效了，这文件还不小。
+
+为什么`app.js`会变，怎么解决？
+
+这里有个引导模板的概念，也就是webpack加载bundle的一些前置函数，例如webpackJsonpCallback、webpack-require、还是script src加载这些，这些函数是不会变的，但是里面的chunk文件映射关系会变，所谓的映射关系，可以看这个函数
+
+```js
+function jsonpScriptSrc(chunkId) {
+	return __webpack_require__.p + "" + ({}[chunkId]||chunkId) + "." + {"about":"c19c62a2"}[chunkId] + ".js"
+}
+```
+
+可以看到，chunk文件id和hash值的映射都在这个函数里面，比如一个chunk叫`about.c19c62a2.js`，在引导模板中就为`{ about: "c5988801" }`，所以每个chunk文件的id变动都会改变这个映射关系，`About.vue`的id变了，当然这个引导模板文件也会变，引导模板又默认放到`app.js`里面，所以需要把这个引导模板抽取出来，独立加载，不要影响`app.js`的hash值
+
+解决方法，webpack添加以下配置
+
+```js
+{
+ 	optimization: {
+   runtimeChunk: 'single' // true 也可以，不过每个entry chunk就有一个runtime
+  }
+}
+```
+
+这样就可以把runtimeChunk打包出来，`app.js`不会因为`about.js`变化而改变
+
+但是还有个问题，这个chunk很小，没必要消耗一次http请求，不然请求时间会大于加载时间，所以直接内联到html模板里面就可以了
+
+可以用`script-ext-html-webpack-plugin`插件实现
+
+```js
+const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
+
+module.exports = {
+  productionSourceMap: false,
+  configureWebpack: {
+    optimization: {
+      runtimeChunk: 'single'
+    },
+    plugins: [
+      new ScriptExtHtmlWebpackPlugin({
+        inline: /runtime.+\.js$/
+      })
+    ]
+  },
+  chainWebpack: config => {
+    config.plugin('preload')
+      .tap(args => {
+        args[0].fileBlacklist.push(/runtime.+\.js$/)
+        return args
+      })
+  }
+};
+```
+
+
+
+### filename和chunkFilename的区别
+
+filename即为打包出来的文件名，比如
+
+```js
+{
+  entry: {
+    index: './src/index.js'
+  },
+  output: {
+    filename: '[name].min.js'
+  }
+}
+```
+
+打包出来的即为`index.min.js`
+
+chunkFilename一般为懒加载的代码块
+
+```js
+import('src/xxx').then(module => {});
+```
+
+打包出来的有可能就是`0.min.js`，默认使用`[id].js`，或者读取`filename`值，替换`[name]`，即为`[id].min.js`
+
+当然可以使用webpack魔法注释
+
+```js
+import(/* webpackChunkName: "xxx" */'src/xxx')
+```
+
+出来的文件就是`xxx.js`
+
+
+
+
+
 ### base64是什么？
 
-**「Base64」** 是一种基于 64 个可打印字符来表示二进制数据的表示方法，3字节等于4打印字符
+**Base64**是一种基于64个可打印字符来表示[二进制数据](https://zh.wikipedia.org/wiki/二进制)的表示方法。由于![{\displaystyle \log _{2}64=6}](https://wikimedia.org/api/rest_v1/media/math/render/svg/9c986fbdc6c036a937e0647d7a6ec5ad745bccab)，所以每6个比特位元为一个单元，对应某个可打印字符。3个字节相当于24个比特，对应于4个Base64单元，即3个字节可由4个可打印字符来表示
 
 
 
@@ -1211,6 +2352,22 @@ import经过webpack打包以后变成一些`Map`对象，`key`为模块路径，
 2. JS 会阻塞页面的解析和渲染，同时浏览器也存在预解析，遇到阻塞可以继续解析下面的元素；
 3. CSS 不阻塞dom树的构建解析，只会阻塞其后面元素的渲染，不会阻塞其前面元素的渲染；
 4. 图片既不阻塞解析，也不阻塞渲染。
+
+
+
+### 什么情况阻塞页面渲染
+
+浏览器在解析`script`标签，会暂停dom的构建，所以script标签要放到body标签底部
+
+js下载和执行都会阻塞页面的渲染，DOM 树解析到非异步的外联 js 时会阻塞住，在它加载并且执行完之前，不会往下解析 DOM 树
+
+当`script`有`defer`或者`async`标签时，则会异步下载
+
+defer：异步并行下载，不影响dom的解析，dom解析完后，在`DOMContentLoaded`事件响应前按顺序执行，有 `defer` 属性的脚本会阻止 `DOMContentLoaded` 事件，直到脚本被加载并且解析完成。
+
+async：同样是并行下载，不会影响dom的解析，不同的是，脚本下载完后就直接执行了，而且是无序执行，跟`DOMContentLoaded`事件无关，比较适合加载无dom操作的脚本代码。
+
+如果`script`标签同时添加`async`和`defer`，浏览器优先执行`async`，不支持则执行`defer`
 
 
 
@@ -1355,13 +2512,23 @@ import经过webpack打包以后变成一些`Map`对象，`key`为模块路径，
 
 ### 微前端系统设计
 
+初衷
+
+1、子系统增量更新
+
+2、子系统可独立部署
+
+3、子系统交给不同团队开发
+
+4、不用iframe
+
+考虑点
+
 1、single-spa，systemjs 接入
 
 2、api设计，命名？兼容旧版本都需要考虑
 
 3、设计系统初始化的整个链路，各个模块间的联系(在子系统加载前要拿到一些信息)
-
-
 
 #### 状态管理
 
@@ -1402,3 +2569,4 @@ webpack externals 依赖，比如vue这些
 资源包括了地图资源、路由资源这些，获取到这些资源之后，都放到microStore中
 
 在子应用的挂载前，同样也是bootstrap中，读取对应子应用的路由权限，动态addRoutes
+
