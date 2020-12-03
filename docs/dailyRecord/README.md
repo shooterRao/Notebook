@@ -1340,4 +1340,346 @@ patch函数其实就是分为三个流程
 
 这样diff的原因，就是为了更高效找到和新节点一样的旧节点，然后只需要移动位置就可以了，避免了重新创建/删除dom
 
+## 十二月
+
+### base64是什么？
+
+Base64是一种基于64个可打印字符来表示二进制数据的表示方法。由于`log264 = 6`，所以每6个比特位元为一个单元，对应某个可打印字符。1个字节等于8比特位，3个字节相当于24个比特位，对应于4个Base64单元，即3个字节可由4个可打印字符来表示。
+
+### 异步模块打包执行流程
+
+当一个文件被异步加载，在`index.js`中这么写
+
+```js
+import(/*webpackChunkName: "async"*/'./async').then((res) => {
+  res.default();
+});
+```
+
+被webpack处理过后index.js的样子，剔除引导模板runtime
+
+```js
+(window["webpackJsonp"] = window["webpackJsonp"] || []).push([["app"],{
+
+/***/ "./src/index.js":
+/*!**********************!*\
+  !*** ./src/index.js ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+__webpack_require__.e(/*! import() | async */ "async")
+  // 需要被__webpack_require__加载
+  // __webpack_require__ 返回 module.exports
+  .then(__webpack_require__.bind(null, /*! ./async */ "./src/async.js"))
+  .then((res) => {
+  	res.default();
+	});
+
+
+/***/ })
+
+},[["./src/index.js","runtime"]]]);
+```
+
+出现2个关键字，一个`webpackJsonp`，一个`__webpack_require__.e`
+
+`webpackJson.push`其实已经被重写了，并不是`Array.prototype.push`，而是一个函数，叫`webpackJsonpCallback`，为什么叫`jsonpCallbak`?其实很好理解，异步的chunk是通过script标签加载的，跟jsonp原理一样。当异步chunk下载完后，首先就是执行这个`webpackJsonpCallback`函数，看看这个函数
+
+```js
+/******/ 	function webpackJsonpCallback(data) {
+            // 异步加载的文件中存放的需要安装的模块对应的 Chunk ID
+/******/ 		var chunkIds = data[0];
+            // 异步加载的文件中存放的需要安装的模块列表
+/******/ 		var moreModules = data[1];
+            // 在异步加载的文件中存放的需要安装的模块都安装成功后，需要执行的模块对应的 index
+  					// 比如 app.js 就是需要最开始执行的
+/******/ 		var executeModules = data[2];
+/******/
+/******/ 		// add "moreModules" to the modules object,
+/******/ 		// then flag all "chunkIds" as loaded and fire callback
+/******/ 		var moduleId, chunkId, i = 0, resolves = [];
+/******/ 		for(;i < chunkIds.length; i++) {
+/******/ 			chunkId = chunkIds[i];
+/******/ 			if(Object.prototype.hasOwnProperty.call(installedChunks, chunkId) && installedChunks[chunkId]) {
+  							// installedChunks[chunkId][0] 就是 promise resolve 函数
+/******/ 				resolves.push(installedChunks[chunkId][0]);
+/******/ 			}
+              // 标记该chunk已经加载完成，0即完成
+/******/ 			installedChunks[chunkId] = 0;
+/******/ 		}
+            // 把所有的模块加入 modules 的对象中, 就是 __webpack_require__.m 对应的那个属性
+/******/ 		for(moduleId in moreModules) {
+/******/ 			if(Object.prototype.hasOwnProperty.call(moreModules, moduleId)) {
+/******/ 				modules[moduleId] = moreModules[moduleId];
+/******/ 			}
+/******/ 		}
+/******/ 		if(parentJsonpFunction) parentJsonpFunction(data);
+/******/    
+/******/ 		while(resolves.length) {
+/******/ 			resolves.shift()();
+/******/ 		}
+/******/
+/******/ 		// add entry modules from loaded chunk to deferred list
+/******/ 		deferredModules.push.apply(deferredModules, executeModules || []);
+/******/
+/******/ 		// run deferred modules when all chunks ready
+  					// 这个函数也很重要，主要是就是执行入口文件，比如app.js
+/******/ 		return checkDeferredModules();
+/******/ 	};
+```
+
+这个函数，接受一个数组参数，包括chunkid，moreModules模块列表，executeModules需要先执行的模块
+
+具体作用
+
+1、是用来标识该chunk加载完成，因为只有下载完才会执行这个callback函数
+
+2、把moreModules，也就是把第二个参数模块Map对象放到runtime最外层作用域的modules数组中，不然`__webpack_require__`拿不到模块
+
+3、resolve`__webpack_require__.e`函数加载chunk返回的promise，通知`__webpack_require__`函数加载和执行模块
+
+4、链式调用promise，把module当参数，执行用户定义的then回调
+
+5、带有入口文件的话，就先执行入口文件
+
+`__webpack_require__.e`简化代码，分析如下
+
+```js
+// 记录chunk状态
+// key: id, value: 状态
+// undefined: 未加载
+// 数组: 加载中
+// 0：已加载
+var installedChunks = {
+  
+}
+
+__webpack.require__.e = function requireEnsure(chunkId) {
+  var promises = []
+  
+  if (installedChunks[chunkId] !== 0) {
+    var promise = new new Promise(function(resolve, reject) {
+	 		installedChunks[chunkId] = [resolve, reject];
+ 		});
+    
+    promises.push(promise);
+  
+  	var script = document.createElement('script');
+  	script.charset = 'utf-8';
+  	script.timeout = 120;// 120s 过后就中断
+  
+  	script.src = jsonpScriptSrc(chunkId); // src加载
+  
+  	onScriptComplete = function (event) {
+    	clearTimeout(timeout);
+  	}
+  
+  	var timeout = setTimeout(function(){
+			console.error('timeout');
+		}, 120000);
+    
+    script.onerror = script.onload = onScriptComplete;
+    document.head.appendChild(script);
+  }
+    
+  	return Promise.all(promises);
+}
+```
+
+可以看到，这个函数主要作用是加载chunk，还有个chunk添加loading状态
+
+这边还漏了个地方没讲，就是打包后的`async.js`文件分析，以及加载`async.js`过程
+
+`async.js`文件
+
+```js
+function asyncModule() {
+  console.log('async module');
+}
+
+export default asyncModule;
+```
+
+打包之后
+
+```js
+(window["webpackJsonp"] = window["webpackJsonp"] || []).push([["async"],{
+
+/***/ "./src/async.js":
+/*!**********************!*\
+  !*** ./src/async.js ***!
+  \**********************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+function asyncModule() {
+  console.log('async module');
+}
+
+/* harmony default export */ __webpack_exports__["default"] = (asyncModule);
+
+/***/ })
+
+}]);
+```
+
+可以看到，webpack也是把`async.js`函数包装了一层，先用`webpackJsonpCallback`函数标识该chunk加载完成，再把`async.js`内容放到模块数组中，然后在`index.js`的打包文件中加载再执行
+
+执行`async.js`里的`asyncModule`函数是在`index.js`文件里面的，往上看打包后的`index.js`文件，有个逻辑，也就是then回调里面的
+
+```js
+__webpack_require__.bind(null, /*! ./async */ "./src/async.js")
+```
+
+其中，`async.js`模块内容是用`__webpack_require__`同步加载执行的，`__webpack_require__`函数是webpack加载模块的核心，先来看看这个函数源码
+
+```js
+function __webpack_require__(moduleId) {
+	// Check if module is in cache
+	if(installedModules[moduleId]) {
+		return installedModules[moduleId].exports;
+	}
+	// Create a new module (and put it into the cache)
+	var module = installedModules[moduleId] = {
+		i: moduleId,
+		l: false,
+		exports: {}
+	};
+
+	// Execute the module function
+  // 执行模块的函数体，也就是async打包后的包装函数
+ 	// modules就是存放所有webpack模块的地方
+	modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+	// Flag the module as loaded
+	module.l = true;
+	// Return the exports of the module
+	return module.exports;
+}
+```
+
+加载的原理也很简单了，就是一行代码，从`modules`里面取模块加载
+
+```js
+modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+```
+
+对应着`async.js`包装函数
+
+```js
+(function(module, __webpack_exports__, __webpack_require__) {}
+```
+
+所以，在异步模块加载之前，一定要把模块放到`modules`变量里面，然后在用`__webpack_require__`执行即可
+
+附上流程图
+
+![image-20201202181100446](./img/image-20201202181100446.png)
+
+所以，完全可以让异步chunk在浏览器空闲的时候下载，因为这些chunk下载不需要先后固定顺序，可以用prefetch对某些异步路由进行提前下载，提供加载速度。
+
+看完源码不得不惊叹，这些加载过程不需要很多代码，就能把chunk之前完全解耦开，闭包玩得太妙了。
+
+### webpack 模块在运行时是怎么存的？
+
+每个模块都存在webpack函数中的`modules`数组变量里面，比如一个id为1的模块
+
+```js
+const modules = [];
+
+modules[1] = {
+  i: 1, // 模块id
+	l: false, // 是否已经加载
+	exports: {} // 导出的值
+}
+```
+
+其中，通过一个表来进行存储，键为模块id，值为一个对象，里面包含了模块属性。
+
+### webpack 持久化 chunk 缓存方案
+
+js、css文件不能使用hash，图片、字体、svg文件可以使用hash
+
+css使用contentHash，使用chunkHash会使得跟其有css文件关联的js文件hash值都改变
+
+js现在也可以使用contentHash了，但是有些旧版本webpack是不支持的
+
+如果js用chunkHash的话，采用以下方案
+
+1、需要用HashedModuleIdsPlugin固定住moduleId(如果不使用，webpack则会使用自增的id，当增加或者删除module的时候，id就会发生变化，没有改过的文件的id也变了，缓存失效)，HashedModuleIdsPlugin是把路径hash化当成模块id
+
+2、使用NamedChunkPlugin+魔法注释来固定住chunkId
+
+到了webpack5.0，moduleId和chunkId问题都可以不用插件解决，直接使用
+
+```js
+module.exports = {
+ optimization:{
+  chunkIds: "deterministic”, // 在不同的编译中不变的短数字 id
+	moduleIds: "deterministic"
+ }
+}
+```
+
+还有一个很重要，但是vuecli却没内置的方案，也就是要把引导模板给提取出来
+
+为什么要提取？这边简单说下
+
+比如在vuecli创建的工程项目中，有一个懒加载路由`About.vue`，打包出来会有`app.contenthash.js`和`about.contenthash.js`，如果我修改了`About.vue`内容，打包出来的`about.contenthash.js`文件hash必然会变，但是你会发现，`app.contentHash.js`也跟着变了，如果在大型项目中这样搞，改了一个路由页面，导致`app.js`也变，这样就使得`app.js`缓存失效了，这文件还不小。
+
+为什么`app.js`会变，怎么解决？
+
+这里有个引导模板的概念，也就是webpack加载bundle的一些前置函数，例如webpackJsonpCallback、webpack-require、还是script src加载这些，这些函数是不会变的，但是里面的chunk文件映射关系会变，所谓的映射关系，可以看这个函数
+
+```js
+function jsonpScriptSrc(chunkId) {
+	return __webpack_require__.p + "" + ({}[chunkId]||chunkId) + "." + {"about":"c19c62a2"}[chunkId] + ".js"
+}
+```
+
+可以看到，chunk文件id和hash值的映射都在这个函数里面，比如一个chunk叫`about.c19c62a2.js`，在引导模板中就为`{ about: "c5988801" }`，所以每个chunk文件的id变动都会改变这个映射关系，`About.vue`的id变了，当然这个引导模板文件也会变，引导模板又默认放到`app.js`里面，所以需要把这个引导模板抽取出来，独立加载，不要影响`app.js`的hash值
+
+解决方法，webpack添加以下配置
+
+```js
+{
+ 	optimization: {
+   runtimeChunk: 'single' // true 也可以，不过每个entry chunk就有一个runtime
+  }
+}
+```
+
+这样就可以把runtimeChunk打包出来，`app.js`不会因为`about.js`变化而改变
+
+但是还有个问题，这个chunk很小，没必要消耗一次http请求，不然请求时间会大于加载时间，所以直接内联到html模板里面就可以了
+
+可以用`script-ext-html-webpack-plugin`插件实现
+
+```js
+const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin');
+
+module.exports = {
+  productionSourceMap: false,
+  configureWebpack: {
+    optimization: {
+      runtimeChunk: 'single'
+    },
+    plugins: [
+      new ScriptExtHtmlWebpackPlugin({
+        inline: /runtime.+\.js$/
+      })
+    ]
+  },
+  chainWebpack: config => {
+    config.plugin('preload')
+      .tap(args => {
+        args[0].fileBlacklist.push(/runtime.+\.js$/)
+        return args
+      })
+  }
+};
+```
+
 <ToTop/>

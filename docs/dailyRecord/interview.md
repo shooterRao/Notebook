@@ -421,6 +421,8 @@ Commomjs
 
 EsModule
 
+UMD
+
 
 
 ## 网络
@@ -688,7 +690,7 @@ http1.0规定在前一个请求响应到达之后下一个请求才能发送，�
 
 Http1.1也存在队头阻塞的问题，无法同时处理超过一小批的请求（通常一次处理6个请求，但因浏览器而导）
 
-![image-20201124154038353](/Users/raojw/study/Front-End/git-store/Notebook/docs/dailyRecord/img/image-20201124154038353.png)
+![image-20201124154038353](./img/image-20201124154038353.png)
 
 http1.1特性
 
@@ -1867,24 +1869,23 @@ function BreadthFirst(data) {
 
 
 
-
-
-### 队列
-
-### 
-
-
-
 ## webpack
 
-### 打包流程
+### 构建流程
 
-- 合并`webpack.config.js`和命令行传递的参数，形成最终的配置
-- 解析配置，得到`entry`入口
-- 读取入口文件内容，通过`@babel/parse`将入口内容（code）转换成`ast`
-- 通过`@babel/traverse`遍历`ast`得到模块的各个依赖
-- 通过`@babel/core`（实际的转换工作是由`@babel/preset-env`来完成的）将`ast`转换成`es5 code`
-- 通过循环伪递归的方式拿到所有模块的所有依赖并都转换成`es5`
+初始化参数：从配置文件和 Shell 语句中读取与合并参数,得出最终的参数。
+
+开始编译：用上一步得到的参数初始化 Compiler 对象,加载所有配置的插，,执行对象的 run 方法开始执行编译。
+
+确定入口：根据配置中的 entry 找出所有的入口文件。
+
+编译模块：从入口文件出发,调用所有配置的 Loader 对模块进行翻译,再找出该模块依赖的模块，再递归本步骤直到所有入口依赖的文件都经过了本步骤的处理。
+
+完成模块编译：在经过第 4 步使用 Loader 翻译完所有模块后，得到了每个模块被翻译后的最终内容以及它们之间的依赖关系。
+
+输出资源：根据入口和模块之间的依赖关系，组装成一个个包含多个模块的 Chunk，再把每个 Chunk 转换成一个单独的文件加入到输出列表,这步是可以修改输出内容的最后机会。
+
+输出完成：在确定好输出内容后，根据配置确定输出的路径和文件名,把文件内容写入到文件系统。
 
 
 
@@ -1922,6 +1923,8 @@ init();
 
 /***/ }),
 ```
+
+接下来就由`__webpack_require__`函数进行模块加载，拿到并保存模块导出的值，最后执行
 
 
 
@@ -1972,6 +1975,7 @@ __webpack_require__.e(/*! import() | async */ "async")
             // 异步加载的文件中存放的需要安装的模块列表
 /******/ 		var moreModules = data[1];
             // 在异步加载的文件中存放的需要安装的模块都安装成功后，需要执行的模块对应的 index
+  					// 比如 app.js 就是需要最开始执行的
 /******/ 		var executeModules = data[2];
 /******/
 /******/ 		// add "moreModules" to the modules object,
@@ -2002,19 +2006,24 @@ __webpack_require__.e(/*! import() | async */ "async")
 /******/ 		deferredModules.push.apply(deferredModules, executeModules || []);
 /******/
 /******/ 		// run deferred modules when all chunks ready
+  					// 这个函数也很重要，主要是就是执行入口文件，比如app.js
 /******/ 		return checkDeferredModules();
 /******/ 	};
 ```
 
-这个函数作用
+这个函数，接受一个数组参数，包括chunkid，moreModules模块列表，executeModules需要先执行的模块
+
+具体作用
 
 1、是用来标识该chunk加载完成，因为只有下载完才会执行这个callback函数
 
-2、把moreModules，也就是模块Map对象放到作用域modules数组中，不然`__webpack_require__`拿不到模块
+2、把moreModules，也就是把第二个参数模块Map对象放到runtime最外层作用域的modules数组中，不然`__webpack_require__`拿不到模块
 
 3、resolve`__webpack_require__.e`函数加载chunk返回的promise，通知`__webpack_require__`函数加载和执行模块
 
 4、链式调用promise，把module当参数，执行用户定义的then回调
+
+5、带有入口文件的话，就先执行入口文件
 
 `__webpack_require__.e`简化代码，分析如下
 
@@ -2133,7 +2142,7 @@ function __webpack_require__(moduleId) {
 }
 ```
 
-加载的原理也很简单了，就是一行代码
+加载的原理也很简单了，就是一行代码，从`modules`里面取模块加载
 
 ```js
 modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
@@ -2149,7 +2158,7 @@ modules[moduleId].call(module.exports, module, module.exports, __webpack_require
 
 附上流程图
 
-![image-20201202181100446](/Users/raojw/study/Front-End/git-store/Notebook/docs/dailyRecord/img/image-20201202181100446.png)
+![image-20201202181100446](./img/image-20201202181100446.png)
 
 
 
@@ -2161,15 +2170,19 @@ modules[moduleId].call(module.exports, module, module.exports, __webpack_require
 
 ### webpack模块在运行时是怎么存的？
 
+每个模块都存在webpack函数中的`modules`数组变量里面，比如一个id为1的模块
 
+```js
+const modules = [];
 
+modules[1] = {
+  i: 1, // 模块id
+	l: false, // 是否已经加载
+	exports: {} // 导出的值
+}
+```
 
-
-import经过webpack打包以后变成一些`Map`对象，`key`为模块id，`value`为模块的可执行函数；
-
-代码加载到浏览器以后从入口模块开始执行，其中执行的过程中，最重要的就是`webpack`定义的`__webpack_require__`函数，负责实际的模块加载并执行这些模块内容，返回执行结果，其实就是读取`Map`对象，然后执行相应的函数；
-
-当然其中的异步方法（import('xxModule')）比较特殊一些，它会单独打成一个包，采用动态加载的方式，具体过程：当用户触发其加载的动作时，会动态的在`head`标签中创建一个`script`标签，然后发送一个`http`请求，加载模块，模块加载完成以后自动执行其中的代码，主要的工作有两个，更改缓存中模块的状态，另一个就是执行模块代码。
+其中，通过一个表来进行存储，键为模块id，值为一个对象，里面包含了模块属性。
 
 
 
@@ -2308,21 +2321,12 @@ import(/* webpackChunkName: "xxx" */'src/xxx')
 
 
 
-
-
-### base64是什么？
-
-**Base64**是一种基于64个可打印字符来表示[二进制数据](https://zh.wikipedia.org/wiki/二进制)的表示方法。由于![{\displaystyle \log _{2}64=6}](https://wikimedia.org/api/rest_v1/media/math/render/svg/9c986fbdc6c036a937e0647d7a6ec5ad745bccab)，所以每6个比特位元为一个单元，对应某个可打印字符。3个字节相当于24个比特，对应于4个Base64单元，即3个字节可由4个可打印字符来表示
-
-
-
 ### 项目优化
 
 - 开发环境剔除第三方包，用cdn加载
 - thread-loader多线程构建优化，通过SMP分析打包过程中loader和plugin的耗时
 - 缩小打包作用域：尽可能使用alias、exclude/include确定loader规则范围
-
-
+- 合理配置chunk缓存化
 
 
 
