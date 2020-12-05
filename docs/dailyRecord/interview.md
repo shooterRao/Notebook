@@ -739,7 +739,7 @@ HTTP1.0缓存使用Expires和header里的Last-Modified，HTTP2.0则增加了Cach
 
 http2.0特性
 
-- 二进制分帧：将所有传输的信息分割为更小的消息和帧,并对它们采用二进制格式的编码
+- 二进制分帧：将所有传输的信息分割为更小的消息和帧，并对它们采用二进制格式的编码
 - 多路复用： 一个TCP连接可以并发处理多个请求，基于二进制分帧，在同一域名下所有访问都是从同一个tcp连接中走，http消息被分解为独立的帧，乱序发送，服务端根据标识符和首部将消息重新组装起来
 - 头部压缩：压缩HTTP请求和响应的首部
 - 服务器推送：服务器可以额外的向客户端推送资源，而无需客户端明确的请求
@@ -782,12 +782,6 @@ TLS实际上SSL改名而来
 有公钥和私钥之分，公钥加密，私钥解密
 
 ![](https://static001.geekbang.org/resource/image/89/17/89344c2e493600b486d5349a84318417.png)
-
-
-
-
-
-
 
 
 
@@ -1566,15 +1560,13 @@ useHook
 
 从vue的角度出发
 
-更容易上手，可以script标签方式引入
-
-虽然react也支持script引入，但是react不支持模板写法
+更容易上手，可以script标签方式引入，虽然react也支持script引入，但是react不支持template写法
 
 vue支持template，也支持jsx
 
 jsx都需要babel插件
 
-逻辑复用方式使用mixin，react现在不支持了
+vue逻辑复用方式使用mixin，react现在不支持了
 
  function based API，react为usehooks
 
@@ -1582,7 +1574,7 @@ jsx都需要babel插件
 
 Vue 进行数据拦截/代理，它对侦测数据的变化更敏感、更精确，组件更新粒度更细，React则并不知道什么时候“应该去刷新”，触发局部重新变化是由开发者手动调用 setState 完成，但是react是全部一起更新的。
 
-为了达到更好的性能，React 暴漏给开发者 shouldComponentUpdate 这个生命周期 hook，来避免不需要的重新渲染（**相比之下，Vue 由于采用依赖追踪，默认就是优化状态：你动了多少数据，就触发多少更新，不多也不少，而 React 对数据变化毫无感知，它就提供 React.createElement 调用已生成 virtual dom**）
+为了达到更好的性能，React 暴漏给开发者 shouldComponentUpdate 这个生命周期 hook，来避免不需要的重新渲染（**相比之下，Vue 由于采用依赖追踪，默认就是优化状态：你动了多少数据，就触发多少更新，不多也不少，而 React 对数据变化毫无感知，它就提供 React.createElement 调用生成 virtual dom**）
 
 react
 
@@ -1591,6 +1583,12 @@ react
 事件系统使用合成事件，都代理在document上
 
 React 中事件处理函数中的 this 默认不指向组件实例
+
+
+
+### 路由原理
+
+
 
 
 
@@ -1614,6 +1612,80 @@ React 中事件处理函数中的 this 默认不指向组件实例
 服务器、命令行工具、客户端
 
 前端工程化
+
+### koa
+
+洋葱模型源码实现
+
+```js
+function compose(middleware, ctx) {
+  function dispatch(index) {
+    if (index === middleware.length) {
+      // 最后一个中间件返回resolve的promise
+      return Promise.resolve();
+    }
+
+    const fn = middleware[index];
+    return Promise.resolve(fn(ctx, () => dispatch(index + 1)));
+  }
+
+  return dispatch(0);
+}
+
+async function async1(ctx, next) {
+  console.log(1);
+  // 调用next才会触发async2
+  await next();
+  console.log(4);
+}
+
+async function async2(ctx, next) {
+  console.log(2);
+  await next();
+  console.log(3);
+}
+
+easyCompose([async1, async2]); // 1,2,3,4
+
+// 实际上，就用compose函数转成
+Promise.resolve(
+  (function fn() {
+    console.log(1);
+    return Promise.resolve(
+      (function () {
+        console.log(2);
+        return Promise.resolve().then(() => {
+          console.log(3);
+        });
+      })()
+      // 这个.then是上面那个Promise.resolve().then返回来的promise
+      // 如果上面那个reject了，里面回调不会执行
+    ).then(() => {
+      console.log(4);
+    });
+  })()
+);
+```
+
+如果看`.then`不是很好理解，看`await`版
+
+```js
+Promise.resolve(
+  (async function fn() {
+    console.log(1);
+    await Promise.resolve(
+      (async function () {
+        console.log(2);
+        await Promise.resolve();
+        console.log(3);
+      })()
+    );
+    console.log(4);
+  })()
+);
+```
+
+这样就能理解所谓的洋葱模型了
 
 
 
@@ -1659,7 +1731,11 @@ rel: 'preload',
   
 - prerender-spa-plugin 使用预渲染插件
 
+- 独立打包异步组件公共 Bundle，以提高复用性&缓存命中率
+
 - 一些大的第三方包都采用异步加载的方式加载
+
+- 使用 Tree Shaking 减少业务代码体积
 
 3、iview tree 大数据量写render函数卡顿问题
 
@@ -1870,6 +1946,10 @@ function BreadthFirst(data) {
 
 
 ## webpack
+
+webpack是模块打包工具，通过一个配置文件，找到入口文件，从这个入口文件开始，找到所以的依赖，构建依赖图，然后进行打包、编译、压缩、优化，最终生成一个浏览器可以直接运行的js文件。
+
+
 
 ### 构建流程
 
@@ -2286,6 +2366,27 @@ module.exports = {
 
 
 
+### 热替换原理
+
+简单来说就是：
+
+hot-module-replacement-plugin 包给 webpack-dev-server 提供了热更新的能力，它们两者是结合使用的，单独写两个包也是出于功能的解耦来考虑的。
+1、webpack-dev-server提供 bundle server的能力，会启动一个服务器，创建websocket链接，把浏览器创建socket链接逻辑塞进打包后的bundle.js里面
+
+2、webpack监听文件变化，重新编译，利用 socket 告诉 devServer/client 新模块的hash值
+
+3、hot-module-replacement-plugin 提供 HMR 的 runtime，并且将 runtime 注入到 bundle.js 代码里面去
+
+4、HMR.runtime 根据服务器提供的最新hash值，调用`hotDownloadManifest`发起模块更新列表json的请求，调用`hotDownloadUpdateChunk`发送`hash.hot-update.js` 请求，也就是最新模块代码
+
+5、执行hash.hot-update.js，调用`webpackHotUpdate`函数
+
+6、`webpackHotUpdate`核心作用，就是删除过期模块，将新模块添加到modules中，`__webpack_require__`函数执行模块代码，完成模块替换
+
+7、最后调用`module.hot.accept()`完成具体逻辑，比如vue和react的热更新都是通过这个api进行组件更新替换
+
+
+
 ### filename和chunkFilename的区别
 
 filename即为打包出来的文件名，比如
@@ -2318,6 +2419,14 @@ import(/* webpackChunkName: "xxx" */'src/xxx')
 ```
 
 出来的文件就是`xxx.js`
+
+
+
+### loader和plugin的开发
+
+loader负责模块的转义工作，要遵循单一原则，每个loader拿到源文件内容，处理完成并返回给webpack，就是一个处理函数，具体开发参考官方文档
+
+plugin通常来说是个class类，里面拓展了webpack的一些功能，webpack在运行时会广播出许多事件，在plugin中订阅这些事件，在合适的时机通过webpack提供的api改变输出的结果
 
 
 
@@ -2382,6 +2491,27 @@ async：同样是并行下载，不会影响dom的解析，不同的是，脚本
 回流是布局或者几何属性需要改变
 
 回流必定发生重绘
+
+
+
+#### 如何避免触发回流和重绘
+
+CSS：
+
+- 避免使用table布局。
+- 尽可能在DOM树的最末端改变class。
+- 避免设置多层内联样式。
+- 将动画效果应用到`position`属性为`absolute`或`fixed`的元素上
+- 避免使用CSS表达式（例如：`calc()`）
+- CSS3硬件加速（GPU加速）
+
+JavaScript：
+
+- 避免频繁操作样式，最好一次性重写style属性，或者将样式列表定义为class并一次性更改class属性
+- 避免频繁操作DOM，创建一个`documentFragment`，在它上面应用所有DOM操作，最后再把它添加到文档中
+- 也可以先为元素设置`display: none`，操作结束后再把它显示出来。因为在display属性为none的元素上进行的DOM操作不会引发回流和重绘
+- 避免频繁读取会引发回流/重绘的属性，如果确实需要多次使用，就用一个变量缓存起来
+- 对具有复杂动画的元素使用绝对定位，使它脱离文档流，否则会引起父元素及后续元素频繁回流
 
 
 
