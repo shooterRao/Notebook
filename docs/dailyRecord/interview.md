@@ -1215,7 +1215,7 @@ function patch (oldVnode, vnode, hydrating, removeOnly) {
       createElm(vnode, insertedVnodeQueue)
     } else {
       const isRealElement = isDef(oldVnode.nodeType)
-      // 如果是一样的vnode，则比较存在的根节点
+      // 如果是一样的vnode，则比较它们的子节点
       if (!isRealElement && sameVnode(oldVnode, vnode)) {
         // patch existing root node
         patchVnode(oldVnode, vnode, insertedVnodeQueue, null, null, removeOnly)
@@ -1420,7 +1420,7 @@ const app = new Vue({
 </script>
 ```
 
-如果是数组`[1,2,3]`，使用`splice(0,1)`删除第一个节点，之前节点索引key为`[1,2,3] -> 0,1,2`，现在变成`[2,3] -> 0,1`，经过vue的比较逻辑，因为key都有`0,1`，所以vue会认为前面2个节点都没变，变得是少了key为2的节点，也就是最后一个，所以前面2个节点直接复用，在视图中你会发现vue就把最后一个节点给删了。
+如果是数组`[1,2,3]`，使用`splice(0,1)`删除第一个节点，之前节点索引key为`[1,2,3] -> 0,1,2`，现在变成`[2,3] -> 0,1`，经过vue的比较逻辑，因为key都有`0,1`，所以vue会认为前面2个节点都没变，变得是少了key为2的节点，也就是最后一个，所以前面2个节点直接复用，在上面demo页面中你会发现vue就把最后一个节点给删了。
 
 但是，如果你直接使用`<li v-for="(val, idx) in arr" :key="idx">{{idx}}</li>`，你会察觉不到是删了最后一个节点，因为vue在diff过程中，发现了`li`是文本节点，在`patchVnode`函数有段逻辑
 
@@ -1587,6 +1587,116 @@ React 中事件处理函数中的 this 默认不指向组件实例
 
 
 ### 路由原理
+
+hash模式，通过`window.onhashchange`事件来监听hash值的改变
+
+```js
+class Router {
+  constructor() {
+    this.isBack = false;
+    this.routes = {};
+    this.currentUrl = '';
+    this.historyStack = [];
+    window.addEventListener('load', () => this.render());
+    window.addEventListener('hashchange', () => this.render());
+  }
+
+  route(path, cb) {
+    this.routes[path] = cb || function () {};
+  }
+
+  render() {
+    console.log(location.hash);
+    if (this.isBack) {
+      this.isBack = false;
+      return;
+    }
+
+    this.currentUrl = location.hash.slice(1) || '/';
+    this.historyStack.push(this.currentUrl);
+    this.routes[this.currentUrl]();
+  }
+  
+  push(path) {
+    window.location.hash = path;
+  }
+
+  back() {
+    this.historyStack.pop();
+
+    const { length } = this.historyStack;
+    if (!length) return;
+
+    this.isBack = true;
+
+    const prev = this.historyStack[length - 1];
+    location.hash = `#${prev}`;
+
+    this.currentUrl = prev;
+    this.routes[prev]();
+  }
+}
+
+const router = new Router();
+
+const BtnDom = document.querySelector('button');
+const ContentDom = document.querySelector('.content-div');
+const changeContent = (content) => (ContentDom.innerHTML = content);
+
+router.route('/', () => changeContent('默认页面'));
+router.route('/page1', () => changeContent('page1'));
+router.route('/page2', () => changeContent('page2'));
+
+BtnDom.addEventListener('click', router.back.bind(router), false);
+
+```
+
+history模式
+
+使用HTML5的history api，监听`window.onpopstate`事件来实现页面组件渲染，`history.pushState`和`histroy.replaceState`不会触发`window.onpopstate`事件
+
+注意，因为history模式的url是真实的ur，服务器会对url的文件路径进行资源查找，找不到资源就会返回404
+
+```js
+class Router {
+  constructor(path) {
+    this.routes = {};
+    history.replaceState({ path }, null, path);
+    this.routes[path] && this.routes[path]();
+    // 前进 || 后退
+    window.addEventListener('popstate', (e) => {
+      const path = e.state && e.state.path;
+      this.routes[path] && this.routes[path]();
+    });
+  }
+
+  route(path, cb) {
+    this.routes[path] = cb || function () {};
+  }
+
+  go(path) {
+    history.pushState({ path }, null, path);
+    this.routes[path] && this.routes[path]();
+  }
+}
+
+const router = new Router(location.pathname);
+
+const ul = document.querySelector('ul');
+const ContentDom = document.querySelector('.content-div');
+const changeContent = (content) => (ContentDom.innerHTML = content);
+
+router.route('/', () => changeContent('默认页面'));
+router.route('/page1', () => changeContent('page1页面'));
+router.route('/page2', () => changeContent('page2页面'));
+
+ul.addEventListener('click', (e) => {
+  if (e.target.tagName === 'A') {
+    e.preventDefault();
+    router.go(e.target.getAttribute('href'));
+  }
+});
+```
 
 
 
