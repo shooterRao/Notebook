@@ -415,13 +415,112 @@ var B = (function(_super) {
 
 IFEE
 
-AMD
+通过闭包方式私有化变量
+
+```js
+var module = (function($) {
+ 	var a = 123;
+  var private = 456;
+  
+  var foo - function() {
+    console.log(private);
+  }
+  
+  $.plugins = function() {};
+  
+  return {
+    a,
+  }
+})(jQuery)
+
+module.foo(); // 456
+module.private; // undefined
+```
+
+缺点：模块化难以维护，依赖模糊
+
+
 
 Commomjs
 
+使用了一个同步的require方法去加载依赖项并且返回一个向外暴露的接口
+
+```js
+require("module");
+require("../file.js");
+exports.doStuff = function() {};
+module.exports = someValue;
+```
+
+这个模式主要用于node.js端，因为同步阻塞调用的问题，以及多个模块之间不能同时并行加载，所以不会用在浏览器端
+
+
+
+AMD
+
+异步的require
+
+```js
+require(["module", "../file"], function(module, file) {
+    /* ... */ 
+});
+define("mymodule", ["dep1", "dep2"], function(d1, d2) {
+  return someExportedValue;
+});
+```
+
+优点：
+
+- 十分适合在现下网络的异步请求
+- 支持多个模块的同时并行加载
+
+缺点：
+
+- 写码开销，读写十分的困难
+
+
+
 EsModule
 
+es6模块化方案，浏览器实现的标准
+
+```js
+import Vue from "vue";
+export function doStuff() {}
+export default function doStuff1() {}
+```
+
+最大的优点是静态解析，编译时就知道模块之间的依赖关系，可以做tree-shaking优化
+
+标准就是最大的优点
+
+
+
 UMD
+
+支持script、commonjs、cmd、esm的模块化方案
+
+```js
+(function (global, factory) {
+  typeof exports === 'object' && typeof module !== 'undefined' ? 
+  module.exports = factory() : 
+  typeof define === 'function' && define.amd ? define(factory) : 
+  (global.xxx = factory());
+})(this, (function () {
+    'use strict';
+     // doSomething......
+    var xxx = 'xxx'; 
+    return xxx;
+}))
+```
+
+
+
+#### esm 与 commonjs 的差异
+
+首先肯定是语法上的差异，一个使用 `import/export` 语法，一个使用 `require/module` 语法。
+
+另一个 ESM 与 CommonJS 显著的差异在于，ESM 导入模块的变量都是强绑定，导出模块的变量一旦发生变化，对应导入模块的变量也会跟随变化，而 CommonJS 中导入的模块都是值传递与引用传递，类似于函数传参。
 
 
 
@@ -565,10 +664,6 @@ UDP 协议是面向无连接的，也就是说不需要在正式传递数据之�
 
 
 
-### 
-
-
-
 ### 状态码。`302.304.301.401.403`的区别？
 
 - 200 OK：客户端请求成功
@@ -639,9 +734,55 @@ axios.get('/get').then(res => {
 
 
 
+### CORS
+
+**跨源资源共享** ([CORS](https://developer.mozilla.org/zh-CN/docs/Glossary/CORS)) （或通俗地译为跨域资源共享）是一种基于[HTTP](https://developer.mozilla.org/zh-CN/docs/Glossary/HTTP) 头的机制，该机制通过允许服务器标示除了它自己以外的其它[origin](https://developer.mozilla.org/zh-CN/docs/Glossary/源)（域，协议和端口），这样浏览器可以访问加载这些资源。
+
+什么情况需要cors？
+
+- 由 [`XMLHttpRequest`](https://developer.mozilla.org/zh-CN/docs/Web/API/XMLHttpRequest) 或 [Fetch](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API) 发起的跨源 HTTP 请求
+- Web 字体 (CSS 中通过` @font-face `使用跨源字体资源)
+- 使用 `drawImage` 将 Images/video 画面绘制到 canvas
+
+
+
+服务端如何开启？
+
+设置
+
+- Access-Control-Allow-Origin
+
+下面2个是options请求检测
+
+- Access-Control-Allow-Methods
+- Access-Control-Allow-Headers
+
+
+
+HTTP请求首部字段
+
+- Origin
+
+- Access-Control-Request-Method
+
+- Access-Control-Request-Headers
+
+
+
+HTTP响应首部字段
+
+- Access-Control-Allow-Origin
+- Access-Control-Allow-Methods
+- Access-Control-Allow-Headers
+- Access-Control-Allow-Credentials (配合XMLHttpRequest.withCredentials使用)
+- Access-Control-Expose-Headers
+- Access-Control-Max-Age
+
+
+
 ### OPTIONS预请求
 
-跨源资源共享标准新增了一组 HTTP 首部字段，允许服务器声明哪些源站通过浏览器有权限访问哪些资源。另外，规范要求，对那些可能对服务器数据产生副作用的 HTTP 请求方法（特别是 [`GET`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/GET) 以外的 HTTP 请求，或者搭配某些 MIME 类型的 [`POST`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/POST) 请求），浏览器必须首先使用 [`OPTIONS`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/OPTIONS) 方法发起一个预检请求（preflight request），从而获知服务端是否允许该跨源请求。服务器确认允许之后，才发起实际的 HTTP 请求。
+跨源资源共享标准新增了一组 HTTP 首部字段，允许服务器声明哪些源站通过浏览器有权限访问哪些资源。另外，规范要求，对那些可能对服务器数据产生副作用的 HTTP 请求方法（特别是 [`GET`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/GET) 以外的 HTTP 请求，或者搭配某些 MIME 类型的 [`POST`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/POST) 请求），浏览器必须首先使用 [`OPTIONS`](https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Methods/OPTIONS) 方法发起一个预检请求（preflight request），从而**获知服务端是否允许该跨源请求**。服务器确认允许之后，才发起实际的 HTTP 请求。
 
 1、使用了这些请求方法：PUT/DELETE/CONNECT/OPTIONS/TRACE/PATCH
 
@@ -854,7 +995,7 @@ CSS盒模型本质上是一个盒子，封装周围的HTML元素，它包括：�
 
 w3c盒模型 content-box
 
-属性width、height只包含内容content，不包含border和padding
+属性width、height只包含内容content，不包含border和padding，但是用offsetWidth取是包含border和padding的
 
 IE盒模型 border-box
 
@@ -1160,6 +1301,10 @@ Vue.prototype.$forceUpdate = function () {
   }
 }
 ```
+
+更新过程
+
+数据改变，`watcher.run`  -> `updateComponent` -> `vm._update(_vm.render())` -> `vm.__patch__` -> diff vnode -> 更新视图
 
 
 
@@ -1841,7 +1986,7 @@ rel: 'preload',
   
 - prerender-spa-plugin 使用预渲染插件
 
-- 独立打包异步组件公共 Bundle，以提高复用性&缓存命中率
+- 独立打包异步组件公共 chunk，以提高复用性&缓存命中率
 
 - 一些大的第三方包都采用异步加载的方式加载
 
@@ -1853,11 +1998,15 @@ rel: 'preload',
 
 但是写了render函数，到了600个节点渲染就会开始卡顿
 
+1、写了render函数，就得重新创建rendercell的组件，这需要消耗时间
+
+2、创建rendercell组件，就多了一个computed watcher，用于获取节点数据，这个watcher订阅了Tree.flatState的更新，一旦Tree.flatState改变，每个computed watcher都会触发
+
 首先，iview的设计是这样子的，为了把节点数据传递给外部的render函数，用了计算属性，也就是node函数去把节点传递出去
 
 如果写了render函数，在节点组件中使用了node计算属性，在vue进行节点组件render的时候，读取node计算属性时，会触发computedGetter函数，node函数是个computed watcher，而且node计算属性里面依赖了Tree.flatState，就是iview扁平化后的树结构，在读取这个Tree.flatState的时候，会调用flatState的reactiveGetter函数，再进行depend收集这个computed watcher，节点多的话，每个节点的computed watcher都要被flatState里的dep收集进去，这里就比较耗时了，因为dep不仅要收集node组件的render watcher，还得收集node的computed watcher
 
-如果Tree.flatState数据量达到600，平均一个node函数需要3ms，如果渲染节点有600个，就是3ms * 600 = 1800ms，1.8s把主线程直接卡住了
+如果Tree.flatState数据量达到600，就是有600个computed watcher，平均一个computed watcher回调函数需要3ms，如果渲染节点有600个，就是3ms * 600 = 1800ms，1.8s把主线程直接卡住了
 
 渲染的每个节点，都会携带一个node的computed-watcher，而且都会被Tree.flatState的dep收集进去，但要折叠节点或者点击节点高亮的时候，iview会重新赋值Tree.flatState，把收集到的watcher全通知计算一遍，这样也会引起页面卡顿
 
@@ -2051,7 +2200,200 @@ function BreadthFirst(data) {
 
 
 
+### 排序
+
+冒泡
+
+```js
+// 默认升序
+function bubblesort(data, type = 'up') {
+  // 不改变原数组
+  if (!Array.isArray(data)) {
+    throw new Error('数据源必须为数组!');
+  }
+  const arr = data.slice();
+  const len = arr.length;
+  for (let i = 0; i < len; i++) {
+    for (let j = 0; j < len - i - 1; j++) {
+      if (type === 'up') {
+        if (arr[j] > arr[j+1]) {
+          [arr[j],arr[j+1]] = [arr[j+1], arr[j]]
+        }
+      } else {
+        if (arr[j] < arr[j+1]) {
+          [arr[j+1],arr[j]] = [arr[j], arr[j+1]]
+        }
+      }
+      
+    }
+  }
+
+  return arr;
+}
+
+```
+
+
+
+快排
+
+```js
+function quickSort(arr) {
+  if (arr.length === 1 || arr.length === 0) {
+    return arr;
+  }
+
+  let left = [];
+  let right = [];
+  let pivot = arr[0]; // 基数
+  // 数组长度大于1才遍历
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] < pivot) {
+      left.push(arr[i]); // 小的放左边
+    } else {
+      right.push(arr[i]); // 大的放右边
+    }
+  }
+
+  return [...quickSort(left), pivot, ...quickSort(right)]
+}
+```
+
+
+
 ### 链表
+
+单向链表
+
+```js
+/**
+ * 链表中的节点 
+ */
+function Node(element) {
+  // 节点中的数据
+  this.element = element;
+  // 指向下一个节点的指针
+  this.next = null;
+}
+
+function LinkedList() {
+  var length = 0;
+  var head = null; // 当前的节点
+
+  this.size = function () {
+    return length;
+  }
+
+  this.head = function () {
+    return head;
+  }
+
+  this.add = function (element) {
+    var node = new Node(element);
+    if (head == null) {
+      head = node;
+    } else {
+      var currentNode = head;
+
+      while (currentNode.next) {
+        currentNode = currentNode.next;
+      }
+
+      currentNode.next = node;
+    }
+    length++;
+  }
+
+  this.remove = function (element) {
+    var currentNode = head;
+    var previousNode;
+    if (currentNode.element === element) {
+      head = currentNode.next;
+    } else {
+      while (currentNode.element !== element) {
+        previousNode = currentNode;
+        currentNode = currentNode.next;
+      }
+      previousNode.next = currentNode.next;
+    }
+    length--;
+  }
+
+  this.isEmpty = function () {
+    return length === 0;
+  }
+
+  this.indexOf = function (element) {
+    var currentNode = head;
+    var index = -1;
+    while (currentNode) {
+      index++;
+      if (currentNode.element === element) {
+        return index;
+      }
+      currentNode = currentNode.next;
+    }
+
+    return -1;
+  }
+
+  this.elementAt = function (index) {
+    var currentNode = head;
+    var count = 0;
+    while (count < index) {
+      count++;
+      currentNode = currentNode.next;
+    }
+    return currentNode.element;
+  }
+
+  this.addAt = function (index, element) {
+    var node = new Node(element);
+    var currentNode = head;
+    var previousNode;
+    var currentIndex = 0;
+
+    if (index > length) {
+      return false;
+    }
+
+    if (index === 0) {
+      node.next = currentNode;
+      head = node;
+    } else {
+      while (currentIndex < index) {
+        currentIndex++;
+        previousNode = currentNode;
+        currentNode = currentNode.next;
+      }
+      node.next = currentNode;
+      previousNode.next = node;
+    }
+    length++;
+  }
+
+  this.removeAt = function (index) {
+    var currentNode = head;
+    var previousNode;
+    var currentIndex = 0;
+    if (index < 0 || index >= length) {
+      return null;
+    }
+    if (index === 0) {
+      head = currentIndex.next;
+    } else {
+      while (currentIndex < index) {
+        currentIndex++;
+        previousNode = currentNode;
+        currentNode = currentNode.next;
+      }
+      previousNode.next = currentNode.next;
+    }
+    length--;
+    return currentNode.element;
+  }
+}
+```
 
 
 
@@ -2637,7 +2979,7 @@ JavaScript：
 
 5、浏览器解析报文，渲染输出页面
 
-渲染过程  **DOM -> CSSOM -> render -> layout -> print**
+渲染过程  **DOM -> CSSOM -> render -> layout -> painting**
 
 1、根据HTML结构生成DOM树
 
@@ -2768,7 +3110,7 @@ JavaScript：
 
 考虑点
 
-1、single-spa，systemjs 接入
+1、single-spa，systemjs 接入，single-spa应用管理，systemjs加载umd文件
 
 2、api设计，命名？兼容旧版本都需要考虑
 
