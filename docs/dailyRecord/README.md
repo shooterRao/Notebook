@@ -1617,7 +1617,7 @@ js现在也可以使用contentHash了，但是有些旧版本webpack是不支持
 ```js
 module.exports = {
  optimization:{
-  chunkIds: "deterministic”, // 在不同的编译中不变的短数字 id
+  chunkIds: "deterministic", // 在不同的编译中不变的短数字 id
 	moduleIds: "deterministic"
  }
 }
@@ -1680,6 +1680,20 @@ module.exports = {
       })
   }
 };
+```
+
+### 如果获取页面FP和FCP的时间
+
+FP(首次绘制)
+
+```js
+const fp = performance.getEntriesByType('paint')[0].startTime;
+```
+
+FCP(首次内容绘制)
+
+```js
+const fcp = performance.getEntriesByType('paint')[1].startTime;
 ```
 
 <ToTop/>

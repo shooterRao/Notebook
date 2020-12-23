@@ -233,12 +233,12 @@ const extend = Object.assign || ((obj, ...args) => {
 ```js
 function throttle(fn, ms = 300) {
   let canRun = true;
-  return function() {
+  return function((...args) {
     if (!canRun) {
       return;
     }
     canRun = false;
-    setTimeout((...args) => {
+    setTimeout(() => {
       fn.apply(this, args);
       canRun = true;
     }, ms);
@@ -383,6 +383,26 @@ var B = (function(_super) {
 
 所以，一般是一个任务结束后，清空微任务队列，然后就进行页面渲染，因为js线程和渲染ui线程互斥，当js线程运行的时候，ui线程处于冻结状态。
 
+用代码表示
+
+```js
+while(true) {
+  for (macroTask of macroTaskQueue) {
+    // 1. Handle current MACRO-TASK
+    handleMacroTask(macroTask);
+      
+    // 2. Handle all MICRO-TASK
+    for (microTask of microTaskQueue) {
+      handleMicroTask(microTask);
+    }
+    
+    uiRender();
+	}
+}
+```
+
+
+
 #### 任务
 
 **任务** 就是由执行诸如从头执行一段程序、执行一个事件回调或一个 interval/timeout 被触发之类的标准机制而被调度的任意 JavaScript 代码。这些都在 **任务队列（task queue）**上被调度。
@@ -406,8 +426,364 @@ var B = (function(_super) {
 微任务为以下这种
 
 - Promise
+- process.nextTick
 - queueMicrotask
 - ...
+
+注意在node中，process.nextTick队列在Promise队列前执行并清空
+
+
+
+写一个promise任务调用器
+
+```js
+class Scheduler {
+  constructor(maxCount) {
+    this.maxCount = maxCount;
+    this.list = [];
+    this.index = 0;
+  }
+
+  add(fn) {
+    this.list.push(fn);
+  }
+
+  start() {
+    for (let i = 0; i < this.maxCount; i++) {
+      // 并发请求
+      this.request();
+    }
+  }
+
+  request() {
+    if (!this.list || !this.list.length || this.index >= this.maxCount) {
+      return;
+    }
+
+    this.index++;
+    const fn = this.list.shift();
+
+    fn().then(() => {
+      this.index--;
+      this.request();
+    })
+  }
+}
+```
+
+
+
+### Promise
+
+手写promiseA+规范
+
+```js
+const PENDING = 'pending'; // 等待态
+const FULFILLED = 'fulfilled'; // 执行态
+const REJECTED = 'rejected'; // 拒绝态
+
+class MyPromise {
+  constructor(fn) {
+    this.value = null;
+    this.error = null;
+    this.status = PENDING;
+    // 当promise为pending状态时，存储回调函数
+    // 用于实现异步串行
+    this.onFulfilledCallbacks = [];
+    this.onRejectedCallbacks = [];
+
+    const resolve = (value) => {
+      if (this.status === PENDING) {
+        this.status = FULFILLED;
+        this.value = value;
+        // callback(this.value);
+        this.onFulfilledCallbacks.forEach((callback) => callback(this.value));
+      }
+    };
+
+    const reject = (error) => {
+      if (this.status === PENDING) {
+        this.status = REJECTED;
+        this.error = error;
+        this.onRejectedCallbacks.forEach((callback) => callback(this.error));
+      }
+    };
+
+    try {
+      fn(resolve, reject);
+    } catch (error) {
+      reject(error);
+    }
+  }
+
+  // onFulfilled 当 promise 执行结束后其必须被调用，其第一个参数为 promise 的终值
+  // onRejected 当 promise 被拒绝执行后其必须被调用，其第一个参数为 promise 的据因
+  then(onFulfilled, onRejected) {
+    let bridgePromise;
+    // 默认给个函数
+    onFulfilled =
+      typeof onFulfilled === 'function' ? onFulfilled : (value) => value;
+    onRejected =
+      typeof onRejected === 'function'
+        ? onRejected
+        : (error) => {
+            throw error;
+          };
+    if (this.status === FULFILLED) {
+      bridgePromise = new MyPromise((resolve, reject) => {
+        // A+规范，异步执行
+        setTimeout(() => {
+          try {
+            const x = onFulfilled(this.value); 
+            resolvePromise(bridgePromise, x, resolve, reject);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+
+      return bridgePromise;
+    }
+
+    if (this.status === REJECTED) {
+      bridgePromise = new MyPromise((resolve, reject) => {
+        setTimeout(() => {
+          try {
+            const x = onRejected(this.error);
+            resolvePromise(bridgePromise, x, resolve, reject);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+
+      return bridgePromise;
+    }
+
+    if (this.status === PENDING) {
+      bridgePromise = new MyPromise((resolve, reject) => {
+        // 处理异步resolve
+        // 回调函数放入 onFulfilledCallbacks 中
+        // 回调函数负责执行 onFulfilled 和 更新 bridgePromise 的状态
+        // promise.then().then()
+        // 当前 promise 的 onFulfilledCallbacks 里的回调函数
+        // 负责执行.then里面的回调函数和更新.then返回的bridgePromise状态
+        this.onFulfilledCallbacks.push((value) => {
+          setTimeout(() => {
+            try {
+              // 执行回调
+              const x = onFulfilled(value);
+              // resolve(x)下去
+              resolvePromise(bridgePromise, x, resolve, reject);
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+
+        this.onRejectedCallbacks.push((error) => {
+          console.log(error);
+          setTimeout(() => {
+            try {
+              // onRejected如果不抛出异常，则为执行态
+              // 比如catch回调中如果不抛出异常，那么这个catch返回的就是执行态
+              const x = onRejected(error);
+              resolvePromise(bridgePromise, x, resolve, reject);
+            } catch (e) {
+              console.log(e);
+              reject(e);
+            }
+          });
+        });
+      });
+
+      return bridgePromise;
+    }
+  }
+
+  catch(onRejected) {
+    return this.then(null, onRejected);
+  }
+}
+
+function resolvePromise(bridgePromise, x, resolve, reject) {
+  // 避免循环引用
+  if (bridgePromise === x) {
+    return reject(new TypeError('Circular reference'));
+  }
+
+  // 避免重复调用
+  /* 
+    Promise.resolve().then(() => {
+      return new Promise((resolve, reject) => {
+        resolve();
+        reject(); // 这种情况就要用called来避免重复调用
+      })
+    })
+
+  */
+  let called = false;
+
+  if (x !== null && (typeof x === 'object' || typeof x === 'function')) {
+    // 在取 x.then 情况下，有可能出现异常
+    // 需要 try catch 包裹
+    try {
+      // 具有 then 方法的对象或者函数
+      // 比如是个Promise实例
+      let then = x.then;
+      if (typeof then === 'function') {
+        // 如果 then 是一个函数
+        // 以 x 为 this 调用 then 函数
+        then.call(
+          x,
+          (y) => {
+            if (called) {
+              return;
+            }
+            called = true;
+            resolvePromise(bridgePromise, y, resolve, reject);
+          },
+          (r) => {
+            if (called) {
+              return;
+            }
+            called = true;
+            reject(r);
+          }
+        );
+      } else {
+        // 如果 then 不是函数，以 x 为参数resolve promise
+        // .then(res => 123).then(x => console.log(x)) 透传
+        resolve(x);
+      }
+    } catch (error) {
+      // 如果出错了也是不能继续调用resolve和reject函数
+      if (called) {
+        return;
+      }
+      called = true;
+      reject(error);
+    }
+  } else {
+    // 如果 x 不为对象或者函数，以 x 为参数执行 promise
+    // 设置 this.value
+    resolve(x);
+  }
+}
+
+MyPromise.resolve = function (value) {
+  if (value instanceof MyPromise) {
+    return value;
+  }
+  return new MyPromise((resolve, reject) => {
+    if (value && value.then && typeof value.then === 'function') {
+      setTimeout(() => {
+        value.then(resolve, reject);
+      });
+    } else {
+      resolve(value);
+    }
+  });
+};
+
+MyPromise.reject = function (error) {
+  return new MyPromise((resolve, reject) => {
+    reject(error);
+  });
+};
+
+MyPromise.all = function (promises) {
+  return new MyPromise((resolve, reject) => {
+    let result = [];
+    let count = 0; // 做个标记进行统计
+    for (let i = 0; i < promises.length; i++) {
+      promises[i].then(
+        function (data) {
+          result[i] = data;
+          count++;
+          // 在放到count为promises.length的promise的onFulfilled回调中进行resolve
+          // 因为count如果为promises.length，则说明所有的promise都fulfilled了
+          if (count === promises.length) {
+            resolve(result);
+          }
+        },
+        function (error) {
+          reject(error);
+        }
+      );
+    }
+  });
+};
+
+MyPromise.race = function (promises) {
+  return new MyPromise((resolve, reject) => {
+    for (let i = 0; i < promises.length; i++) {
+      promises[i].then(
+        // 有个promise执行态了，就直接resolve
+        (data) => {
+          resolve(data);
+        },
+        (error) => reject(error)
+      );
+    }
+  });
+};
+
+MyPromise.promisify = function (fn) {
+  return function (...args) {
+    return new MyPromise((resolve, reject) => {
+      fn.apply(
+        null,
+        args.concat((err) => {
+          err ? reject(err) : resolve(args[1]);
+        })
+      );
+    });
+  };
+};
+
+MyPromise.deferred = function () {
+  let defer = {};
+  defer.promise = new MyPromise((resolve, reject) => {
+    defer.resolve = resolve;
+    defer.reject = reject;
+  });
+  return defer;
+};
+
+module.exports = MyPromise;
+```
+
+20行简单手写
+
+```js
+function MyPromise(fn) {
+  this.cbs = [];
+  this.value = null;
+
+  const resolve = (value) => {
+    setTimeout(() => {
+      this.value = value;
+      this.cbs.forEach((cb) => cb(value));
+    });
+  }
+
+  fn(resolve);
+}
+
+MyPromise.prototype.then = function (onResolved) {
+  return new MyPromise((resolve) => {
+    this.cbs.push(() => {
+      const res = onResolved(this.value);
+      if (res instanceof MyPromise) {
+        res.then(resolve);
+      } else {
+        resolve(res);
+      }
+    });
+  });
+};
+```
 
 
 
@@ -498,7 +874,7 @@ export default function doStuff1() {}
 
 UMD
 
-支持script、commonjs、cmd、esm的模块化方案
+支持script、commonjs、esm的模块化方案
 
 ```js
 (function (global, factory) {
@@ -640,6 +1016,12 @@ TCP，传输控制协议，是一种面向连接的、可靠的、基于字节�
 
 第三次握手：客户端再次发送ACK向服务器，服务器验证ACK没有问题，则建立连接
 
+**为什么要三次握手？**
+
+1、为了防止已失效的连接请求报文段突然又传送到了服务端，因而产生错误
+
+2、保证双方都有收发报文的能力
+
 
 
 #### 四次挥手
@@ -652,9 +1034,23 @@ TCP，传输控制协议，是一种面向连接的、可靠的、基于字节�
 
 第四次挥手：客户端再次发送ACK，进入TIME_WAIT状态，服务端关闭，客户端等待2MSL后关闭
 
-为什么客户端要等到2MSL后再关闭？
+**为什么客户端要等到2MSL后再关闭？**
 
 等待2MSL时间主要目的是怕最后一个ACK包对方没收到，那么对方在超时后将重发第三次握手的FIN包，主动关闭端接到重发的FIN包后可以再发一个ACK应答包。
+
+**为什么要四次挥手？**
+
+因为tcp是全双工模式，服务端和客服端都能发送和接收数据，tcp在断开连接时，需要服务端和客服端都确定对方将不再发送数据。
+
+当客户端发送FIN报文段时，只是表示客户端已经没有数据要发送了，但是客户端还可以接收服务端的数据
+
+当服务端发送ACK报文段时，表示它已经知道客户端没有数据发送了，但是服务端还是可以发数据到客户端
+
+当服务端也发送FIN报文段时，表示服务端没有数据发送了，告诉客户端
+
+客户端收到FIN报文段，发送ACK表示已经知道服务端没有数据发送了
+
+简单来说，就是双方都需要发送FIN和ACK报文段才能断开TCP连接
 
 
 
@@ -694,7 +1090,7 @@ http1.0：一个tcp连接只能发一个http请求
 
 http1.1：默认开启Connection:keep-alive，一个tcp连接可以发多个http请求，但是多个请求是串行执行
 
-http2.0：引入了多路复用和二进制分帧，一个tcp连接可以并发多个http请求，请求和响应是并行执行
+http2.0：引入了多路复用和二进制分帧，同域下一个tcp连接可以并发多个http请求，请求和响应是并行执行
 
 
 
@@ -1038,17 +1434,43 @@ flex简写属性包括
 
 答：注册组件的本质实际上是建立一个组件构造器的引用，在使用时才会去实例化。也就是生成一个function。
 
-下面就关于原型的知识了
+实际上每个组件实例的data都会指向同个引用，所以需要用函数创建它们的独立作用域
 
-​		组件data属性实际上在挂载到 构造器function.prototype上的，比如
+源码initData
 
 ```js
-const Comp = function () {}
+function initData (vm: Component) {
+  let data = vm.$options.data
+  data = vm._data = typeof data === 'function'
+    ? getData(data, vm)
+    : data || {}
+  if (!isPlainObject(data)) {
+    data = {}
+    process.env.NODE_ENV !== 'production' && warn(
+      'data functions should return an object:\n' +
+      'https://vuejs.org/v2/guide/components.html#data-Must-Be-a-Function',
+      vm
+    )
+  }
+}
 
-Comp.prototype.data = ...
+function getData (data: Function, vm: Component): any {
+  // #7573 disable dep collection when invoking data getters
+  pushTarget()
+  try {
+    return data.call(vm, vm)
+  } catch (e) {
+    handleError(e, vm, `data()`)
+    return {}
+  } finally {
+    popTarget()
+  }
+}
 ```
 
-​		如果该原型下的data属性值为**对象**
+可以看到实例`vm._data`都会指向同个引用
+
+如果该原型下的data属性值为**对象**
 
 ```js
 // 创建构造器Comp
@@ -1061,12 +1483,11 @@ Vue.component('Comp', {
 
 const Comp = function ({ data }) {
   // 类似于这种
-  this.data = this.data;
+  this.data = data;
 }
 
 // 简化后的代码实际上是这个
-// 取到注册对象 data 属性并挂载到构造器原型上
-Comp.prototype.data = {
+Comp.data = {
   a: 1,
   b: 2
 }
@@ -1101,12 +1522,7 @@ Vue.component('Comp', {
 
 const Comp = function ({ data }) {
   // 调用原型 data 函数，每个组件实例都有各自的数据副本，避免数据互相影响
-  this.data = this.data();
-}
-
-Comp.prototype.data = function () {
-  a: 1,
-  b: 2
+  this.data = data();
 }
 
 const compA = new Comp();
@@ -1198,6 +1614,35 @@ vm.a = 3;
 Vue优先将渲染操作推迟到本轮事件循环的最后，如果执行环境不支持会降级到下一轮
 
 当同一轮事件循环中反复修改状态时，并不会反复向队列中添加相同的渲染操作，也就是render watcher
+
+
+
+写一个简单的nextTick函数
+
+```js
+let pending = false;
+
+const callbacks = [];
+function flushCallbacks() {
+  pending = false;
+  callbacks.forEach(cb => cb());
+  callbacks = [];
+}
+
+function nextTick(cb) {
+  callbacks.push(cb);
+  if (!pending) {
+    pending = true;
+    Promise.resolve().then(flushCallbacks);
+  }
+}
+
+nextTick(() => {console.log(1)});
+nextTick(() => {console.log(2)});
+nextTick(() => {console.log(3)});
+
+console.log(4);
+```
 
 
 
@@ -1675,6 +2120,8 @@ Vue.prototype._init = function (options?: Object) {
   }
 ```
 
+Init -> $mount -> compile -> render -> vnode -> patch -> dom
+
 
 
 ### 父子组件生命周期执行顺序
@@ -1692,6 +2139,43 @@ Vue.prototype._init = function (options?: Object) {
 父beforeDestroy->子beforeDestroy->子destroyed->父destroyed
 
 
+
+### 虚拟dom
+
+虚拟dom本质上就是用js对象描述dom节点，在vue中就是用vnode来描述
+
+比如一个vnode实例
+
+```js
+{
+  tag: 'div',
+  data: {},
+  children: [],
+  parent: vnode,
+  text: '',
+  key: '',
+}
+```
+
+问题，
+
+虚拟dom有什么优点？
+
+1、可以用vnode进行diff，实现旧节点复用，减少dom的创建开销，并且无须手动操作dom
+
+2、和dom操作比起来，js计算极其便宜
+
+3、跨平台，服务端渲染，weex
+
+缺点？
+
+渲染大量的dom时，多了一层虚拟dom的计算，会比innerHTML慢
+
+"Virtual DOM 真正的价值从来都不是性能，而是它
+
+ 1) 为函数式的 UI 编程方式打开了大门；
+
+2) 可以渲染到 DOM 以外的 backend，比如 ReactNative。"
 
 ## react
 
@@ -1950,7 +2434,7 @@ Promise.resolve(
 
 1、修复内存泄漏
 
-eventBus 解绑事件、echarts实例dispose
+eventBus 解绑事件(可以引入自研插件)、echarts实例dispose
 
 2、首屏优化
 
@@ -2000,7 +2484,7 @@ rel: 'preload',
 
 1、写了render函数，就得重新创建rendercell的组件，这需要消耗时间
 
-2、创建rendercell组件，就多了一个computed watcher，用于获取节点数据，这个watcher订阅了Tree.flatState的更新，一旦Tree.flatState改变，每个computed watcher都会触发
+2、创建rendercell组件，会有render watch，还会多了一个computed watcher，用于获取节点数据，这个watcher订阅了Tree.flatState的更新，一旦Tree.flatState改变，每个computed watcher都会触发
 
 首先，iview的设计是这样子的，为了把节点数据传递给外部的render函数，用了计算属性，也就是node函数去把节点传递出去
 
