@@ -1322,6 +1322,84 @@ TLS实际上SSL改名而来
 
 
 
+### WebSocket
+
+Websocket，是一个持久化的网络通信协议，可以在单个TCP连接上进行全双工通讯，客户端和服务端之间可以进行双向数据传输
+
+websocket握手
+
+客户端建立连接时，通过HTTP发起请求报文，借用`101 switch protocol`进行协议转换
+
+```
+GET /chat HTTP/1.1
+Host: server.example.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==
+Sec-WebSocket-Protocol: chat, superchat
+Sec-WebSocket-Version: 13
+```
+
+与HTTP不一样的地方在于如下这些协议头，表示发起websocket协议
+
+```
+Upgrade: websocket
+Connection: Upgrade
+```
+
+`Sec-WebSocket-Key`为客户端随机生成的Base64编码的字符串，服务端接收后将其与字符串`258EAFA5-E914-47DA-95CA-C5AB0DC85B11`相连，然后通过`sha1`安全散列算法计算结果后，再进行Base64编码，返回给客户端建立连接，过程如下
+
+```js
+const hashWebSocketKey = function (key) {
+  const sha1 = crypto.createHash('sha1');
+  sha1.update(key + KEY_SUFFIX, 'ascii');
+  return sha1.digest('base64');
+};
+
+const key = hashWebSocketKey(req.headers['sec-websocket-key']);
+
+const headers = [
+ 'HTTP/1.1 101 Web Socket Protocol Handshake',
+ 'Upgrade: WebSocket',
+ 'Connection : Upgrade',
+ 'Sec-WebSocket-Accept: ' + key
+];
+
+// 建立连接
+this.socket.write(headers.concat('', '').join('\r\n'));
+```
+
+数据帧
+
+websocket是通过帧进行传输，下面是websocket数据帧的定义
+
+```
+ |  fin   |   masked     |  masking key |          |
+ |  rsv1  |   payload    |              |          |
+ |  rsv2  |   length     |              | payload  | 
+ |  rsv3  |   7+16 bit   |   4byte      |   data   |
+ | opcode |    7+16      |              |          |
+ |        |    7+64      |              |          | 
+ |        |              |              |          |
+ |        |              |              |          |
+```
+
+fin: 如果数据帧是最后一帧，则为1，其余情况为0
+
+rsv1、rsv2、rsv3 ：1bit，用于扩展协议
+
+opcode：长为4位的操作码，0表示附加数据帧、1表示文本数据帧、2表示二进制数据帧、3-7为非控制帧而预留、8表示发送一个连接关闭的数据帧、9为ping数据帧、10表示pong数据帧
+
+masked：表示是否进行掩码处理，长度为1bit，客户端发送给服务器端时为1，服务器端发送给客户端时为0
+
+payload length：一个7、7+16、7+64位长的数据位，标识数据的长度，如果值在0-125之间，那么该值就是数据的真实长度；如果值是126，则后面16位的值是数据的真实长度；如果值是127，则后面64位的值是数据的真实长度
+
+masking key：当masked为1bit时，是一个32位长的数据位，也就是4个字节，用于解码数据
+
+payload data：目标数据，位数为8的倍数
+
+
+
 ## 安全
 
 ### `XSS` 跨站脚本攻击
@@ -2434,7 +2512,7 @@ Promise.resolve(
 
 1、修复内存泄漏
 
-eventBus 解绑事件(可以引入自研插件)、echarts实例dispose
+eventBus解绑事件(可以引入自研插件)、echarts实例dispose
 
 2、首屏优化
 
@@ -2449,20 +2527,19 @@ eventBus 解绑事件(可以引入自研插件)、echarts实例dispose
 - 升级到vuecli3，vuecli3使用了webpack4，splitChunks 配合 preload-webpack-plugin 可以开启preload/prefetch 优化页面加载效率
 
   ```js
-/* config.plugin('preload') */
-  new PreloadPlugin({
-rel: 'preload',
-  include: 'initial',
+new PreloadPlugin({
+  rel: 'preload',
+include: 'initial',
   fileBlacklist: [/\.map$/, /hot-update\.js$/],
-  }),
-  /* config.plugin('prefetch') */
+  });
+  
   new PreloadPlugin({
   rel: 'prefetch',
   include: 'asyncChunks',
-  }),
+  });
   ```
   
-  什么是 preload ? 和 prefetch 的区别
+  什么是 preload？和 prefetch 的区别？
   
   Prefetch(预加载)可以强制浏览器在不阻塞 document 的 [onload](https://developer.mozilla.org/en-US/docs/Web/API/GlobalEventHandlers/onload) 事件的情况下请求资源，告诉浏览器这个资源将来可能需要，但是什么时间加载这个资源是由浏览器来决定的。
   
@@ -2476,7 +2553,7 @@ rel: 'preload',
 
 - 使用 Tree Shaking 减少业务代码体积
 
-3、iview tree 大数据量写render函数卡顿问题
+3、iview tree 大数据量写 render 函数卡顿问题
 
 如果不写自定义render函数，1000个子节点渲染、折叠动画过渡都不会有明显卡顿，但是如果节点过多，到了3000+就会卡，主要会在updateComponent函数里耗时很久，这块是vue要进行节点diff和patch操作
 
@@ -2525,10 +2602,6 @@ rel: 'preload',
 5、3000+节点目录树渲染
 
 浙江省厅项目组那边遇到了个目录树加载的问题，就是在使用iview的tree组件，大数据量(1000+节点)情况下会非常卡顿，特别是折叠的时候，他们非常着急，所以求助了我。因为之前我优化过iview的tree组件卡顿问题，所以拿出我优化过的组件测试了下，虽然提速比较明显，但是依旧卡顿，掉帧明显。后来，我拿出了自己之前用ts写的树组件轮子(开源项目)，不依赖任何第三方库，很轻量，性能还不错，因为只会递归一次，加上用了事件代理，全局也只会绑定一个点击事件和一个双击事件，而iview在折叠的时候都会进行递归，每个节点都会有多个点击事件，所以会非常卡。经过测试，我的树组件轻松渲染3000+子节点数据，折叠也非常顺滑。这次经历，说明有空还是多练习写点轮子，说不定以后在某个关键时候就用得上了，解决燃眉之急。
-
-6、长列表渲染
-
-TODO
 
 
 
@@ -3521,6 +3594,8 @@ JavaScript：
 - 定期code review，记录不合理地方和表扬优雅的代码
 - 提供项目基线版本，项目目录结构一致
 
+
+
 ### Code Review
 
 - 命名混乱
@@ -3529,6 +3604,8 @@ JavaScript：
 - 过多的if else
 - 全局组件带有子模块业务代码
 - 注释太少，data变量注释要带上
+
+
 
 ## 工程架构能力
 
