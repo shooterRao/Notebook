@@ -3330,7 +3330,7 @@ function jsonpScriptSrc(chunkId) {
 }
 ```
 
-可以看到，chunk文件id和hash值的映射都在这个函数里面，比如一个chunk叫`about.c19c62a2.js`，在引导模板中就为`{ about: "c5988801" }`，所以每个chunk文件的id变动都会改变这个映射关系，`About.vue`的id变了，当然这个引导模板文件也会变，引导模板又默认放到`app.js`里面，所以需要把这个引导模板抽取出来，独立加载，不要影响`app.js`的hash值
+可以看到，chunk文件id和hash值的映射都在这个函数里面，比如一个chunk叫`about.c19c62a2.js`，在引导模板中就为`{ about: "c19c62a2" }`，所以每个chunk文件的id变动都会改变这个映射关系，`About.vue`的id变了，当然这个引导模板文件也会变，引导模板又默认放到`app.js`里面，所以需要把这个引导模板抽取出来，独立加载，不要影响`app.js`的hash值
 
 解决方法，webpack添加以下配置
 
