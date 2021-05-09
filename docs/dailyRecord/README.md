@@ -287,5 +287,98 @@ window.addEventListener(
 
 ### 修改 .browserlist 不生效的问题
 
-在vuecli项目中修改了`.browserlist`文件，重新编译发现体积变更不太明显，是因为`cache-loader`的原因，在`node_modules`中删除`.cache`文件，再重新编辑即可
+在 vuecli 项目中修改了`.browserlist`文件，重新编译发现体积变更不太明显，是因为`cache-loader`的原因，在`node_modules`中删除`.cache`文件，再重新编辑即可
+
+### ts 获取枚举的 key
+
+```ts
+enum ColorsEnum {
+  white = '#ffffff',
+  black = '#000000',
+}
+
+type Colors = keyof typeof ColorsEnum;
+
+const keys = Object.keys(ColorsEnum) as Array<keyof typeof ColorsEnum>;
+
+const colorLiteral: Colors;
+colorLiteral = 'white'; // OK
+colorLiteral = 'black'; // OK
+colorLiteral = 'red'; // Error...
+```
+
+## 三月
+
+### 适配 iphonex+底部安全距离
+
+如何适配 iphone 手机底部安全距离？
+
+例如一个浮动的按钮，在使用了绝对定位或者固定定位，需要加上以下属性
+
+
+```css
+.btn {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  right: 16px;
+  bottom: 94px;
+  bottom: calc(constant(safe-area-inset-bottom) + 94px);
+  bottom: calc(env(safe-area-inset-bottom) + 94px);
+}
+```
+
+如果是定位底部的，例如footer这类的元素
+
+```css
+.footer {
+  position: absolute;
+  bottom: 0;
+  bottom: constant(safe-area-inset-bottom); /* iOS 11.0 */
+  bottom: env(safe-area-inset-bottom); /* iOS 11.2 */
+}
+```
+
+还有，记得在html文件加上
+
+```html
+<meta name="viewport" content="viewport-fit=cover"/>
+```
+
+### 点击iframe内部无法触发外部事件的解决方案
+
+现在有个dropdown组件，呈打开状态，如果点击外部区域就会自动收起，但是点击iframe之后，无法自动收起，原因是点击iframe无法触发外部层级的`document.mousedown`事件
+
+如何解决？可以使用`window.blur`或者给iframe的`contentWindow.document`添加点击事件(仅限于同源情况)
+
+window.blur方案
+
+```js
+const onWinBlur = () => {
+  if (document.activeElement === document.getElementById('office-iframe')) {
+    const dropdown = this.dropdownRef
+    if (dropdown.visible) {
+      dropdown.hide()
+    }
+  }
+}
+
+window.addEventListener('blur', onWinBlur)
+```
+
+## 四月
+
+### 跨站
+
+> Cookie发送遵守的同站策略，并不是同源策略，SameSite设为None则支持跨站发送(前提是开启Secure+htttps)
+
+什么是同站？
+
+eTLD+1 相同即是同站
+
+eTLD: (effective top-level domain) 有效顶级域名，注册于 Mozilla 维护的公共后缀列表（Public Suffix List）中,如.com、.co.uk、.github.io,.top 等
+
+eTLD+1: 有效顶级域名+二级域名，如 taobao.com,baidu.com(顶级域名是.com，二级域名是taobao、baidu)
+
 
