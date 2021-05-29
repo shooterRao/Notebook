@@ -381,4 +381,44 @@ eTLD: (effective top-level domain) 有效顶级域名，注册于 Mozilla 维护
 
 eTLD+1: 有效顶级域名+二级域名，如 taobao.com,baidu.com(顶级域名是.com，二级域名是taobao、baidu)
 
+## 五月
+
+### 前端异常捕获方式
+
+1、try catch
+
+无法捕获异步错误
+
+2、window.onerror
+
+可以捕获异步和同步异常，除了promise
+
+3、unhandledrejection
+
+捕获未处理的promise
+
+4、ajax异常
+
+重写 XMLHttpRequest.prototype 相关方法
+
+### 用nginx代理onpremise部署的sentry上报接口(https)
+
+因为用onpremise部署的sentry，只提供了http接口，如果在https应用里调用http接口会报`Mixed Content`问题，所以需要用nginx增加一层接口转发，nginx相关配置
+
+'https://xxx/sentry/api/xxx'转发到'http://xxx:9000/api/xxx'即可
+
+```conf
+# 忽略ssl相关配置
+# 主要是下面转发配置
+location /sentry/api/store/ {
+  proxy_pass http://xxx:9000/api/store/;
+}
+
+location ~ /sentry/(api/[1-9]+/.*) {
+  rewrite /sentry/(api/[1-9]+/.*) /$1 break;
+  proxy_pass http://xxx:9000;
+}
+```
+
+
 
