@@ -315,7 +315,6 @@ colorLiteral = 'red'; // Error...
 
 例如一个浮动的按钮，在使用了绝对定位或者固定定位，需要加上以下属性
 
-
 ```css
 .btn {
   position: fixed;
@@ -329,7 +328,7 @@ colorLiteral = 'red'; // Error...
 }
 ```
 
-如果是定位底部的，例如footer这类的元素
+如果是定位底部的，例如 footer 这类的元素
 
 ```css
 .footer {
@@ -340,38 +339,38 @@ colorLiteral = 'red'; // Error...
 }
 ```
 
-还有，记得在html文件加上
+还有，记得在 html 文件加上
 
 ```html
-<meta name="viewport" content="viewport-fit=cover"/>
+<meta name="viewport" content="viewport-fit=cover" />
 ```
 
-### 点击iframe内部无法触发外部事件的解决方案
+### 点击 iframe 内部无法触发外部事件的解决方案
 
-现在有个dropdown组件，呈打开状态，如果点击外部区域就会自动收起，但是点击iframe之后，无法自动收起，原因是点击iframe无法触发外部层级的`document.mousedown`事件
+现在有个 dropdown 组件，呈打开状态，如果点击外部区域就会自动收起，但是点击 iframe 之后，无法自动收起，原因是点击 iframe 无法触发外部层级的`document.mousedown`事件
 
-如何解决？可以使用`window.blur`或者给iframe的`contentWindow.document`添加点击事件(仅限于同源情况)
+如何解决？可以使用`window.blur`或者给 iframe 的`contentWindow.document`添加点击事件(仅限于同源情况)
 
-window.blur方案
+window.blur 方案
 
 ```js
 const onWinBlur = () => {
   if (document.activeElement === document.getElementById('office-iframe')) {
-    const dropdown = this.dropdownRef
+    const dropdown = this.dropdownRef;
     if (dropdown.visible) {
-      dropdown.hide()
+      dropdown.hide();
     }
   }
-}
+};
 
-window.addEventListener('blur', onWinBlur)
+window.addEventListener('blur', onWinBlur);
 ```
 
 ## 四月
 
 ### 跨站
 
-> Cookie发送遵守的同站策略，并不是同源策略，SameSite设为None则支持跨站发送(前提是开启Secure+htttps)
+> Cookie 发送遵守的同站策略，并不是同源策略，SameSite 设为 None 则支持跨站发送(前提是开启 Secure+htttps)
 
 什么是同站？
 
@@ -379,7 +378,7 @@ eTLD+1 相同即是同站
 
 eTLD: (effective top-level domain) 有效顶级域名，注册于 Mozilla 维护的公共后缀列表（Public Suffix List）中,如.com、.co.uk、.github.io,.top 等
 
-eTLD+1: 有效顶级域名+二级域名，如 taobao.com,baidu.com(顶级域名是.com，二级域名是taobao、baidu)
+eTLD+1: 有效顶级域名+二级域名，如 taobao.com,baidu.com(顶级域名是.com，二级域名是 taobao、baidu)
 
 ## 五月
 
@@ -391,19 +390,19 @@ eTLD+1: 有效顶级域名+二级域名，如 taobao.com,baidu.com(顶级域名�
 
 2、window.onerror
 
-可以捕获异步和同步异常，除了promise
+可以捕获异步和同步异常，除了 promise
 
 3、unhandledrejection
 
-捕获未处理的promise
+捕获未处理的 promise
 
-4、ajax异常
+4、ajax 异常
 
 重写 XMLHttpRequest.prototype 相关方法
 
-### 用nginx代理onpremise部署的sentry上报接口(https)
+### 用 nginx 代理 onpremise 部署的 sentry 上报接口(https)
 
-因为用onpremise部署的sentry，只提供了http接口，如果在https应用里调用http接口会报`Mixed Content`问题，所以需要用nginx增加一层接口转发，nginx相关配置
+因为用 onpremise 部署的 sentry，只提供了 http 接口，如果在 https 应用里调用 http 接口会报`Mixed Content`问题，所以需要用 nginx 增加一层接口转发，nginx 相关配置
 
 'https://xxx/sentry/api/xxx'转发到'http://xxx:9000/api/xxx'即可
 
@@ -420,5 +419,68 @@ location ~ /sentry/(api/[1-9]+/.*) {
 }
 ```
 
+## 六月
 
+### vue-class-component 初始化 data 属性的坑
+
+如果用 vue-class-component 来写 vue 组件，初始化响应式 data 里面有值如果是 undefined，这个值将会被过滤，不会交给 vue 的 data 中，例如
+
+```ts
+import Vue from 'vue';
+import Component from 'vue-class-component';
+
+@Component
+export default class HelloWorld extends Vue {
+  // message 不是响应式的
+  message = undefined;
+
+  // message1是响应式的
+  message1 = null;
+}
+```
+
+看了下源码，发现 vue-class-component 里面加了这段逻辑
+
+```ts
+// create plain data object
+const plainData = {};
+Object.keys(data).forEach((key) => {
+  if (data[key] !== undefined) {
+    plainData[key] = data[key];
+  }
+});
+```
+
+所有 undefined 的值都被过滤了，所以不是 vue 过滤了 undefined 值，而是 vue-class-component
+
+github 相关讨论：https://github.com/vuejs/vue-class-component/issues/39
+
+### 处理多个条件简洁写法
+
+```js
+someFunction(str){
+  if(str.includes("someValue1") || str.includes("someValue2")){
+    return true
+  }else{
+    return false
+  }
+}
+```
+
+简洁的写法：
+
+```js
+someFunction(str){
+  const conditions = ["someValue1", "someValue2"];
+  return conditions.some(condition => str.includes(condition));
+}
+```
+
+## 七月
+
+### 使用word-spacing增加文字间距
+
+如果想让'你好'展示成'你   好'，可以使用word-spacing
+
+注意，word-spacing对中文无效，所以需要带上一个空格可以强行让它生效，比如'你 好'
 
