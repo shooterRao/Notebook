@@ -478,9 +478,108 @@ someFunction(str){
 
 ## 七月
 
-### 使用word-spacing增加文字间距
+### 使用 word-spacing 增加文字间距
 
-如果想让'你好'展示成'你   好'，可以使用word-spacing
+如果想让'你好'展示成'你 好'，可以使用 word-spacing
 
-注意，word-spacing对中文无效，所以需要带上一个空格可以强行让它生效，比如'你 好'
+注意，word-spacing 对中文无效，所以需要带上一个空格可以强行让它生效，比如'你 好'
 
+### 替换文本指定位置函数
+
+```ts
+const replaceRangeString = (
+  text: string,
+  start: number,
+  end: number,
+  replacetext: string
+) => text.substring(0, start) + replacetext + text.substring(end);
+```
+
+## 八月
+
+### package.json 版本问题
+
+安装了个 ui 库，里面依赖了饿了么 ui，本地开发也安装了饿了么 ui，如果希望这个 ui 用的是本地依赖的饿了么 ui，本地的饿了么版本号需要和 ui 库的依赖版本一致
+
+ui/package.json -> element-ui(^2.15.0)
+本地/package.json -> element-ui(^2.15.0)
+
+这样就可以共用一套饿了么 ui 了，否则，ui 库下面的 node_modules 会多出个 element-ui
+
+### 缓冲任务队列函数
+
+```js
+const queue = [];
+let isFlushing = false;
+function queueJob(job) {
+  if (!queue.includes(job)) queue.push(job);
+  if (!isFlushing) {
+    isFlushing = true;
+    Promise.resolve().then(() => {
+      let fn;
+      while ((fn = queue.shift())) {
+        fn();
+      }
+    });
+  }
+}
+
+function log1() {
+  console.log(123);
+}
+
+function log2() {
+  console.log(666);
+}
+
+queueJob(log1);
+queueJob(log1);
+queueJob(log1);
+
+queueJob(log2);
+queueJob(log2);
+queueJob(log2);
+
+isFlushing = false;
+```
+
+### 如何按需指定 node_modules/@types 下的声明文件
+
+一般来说，node_modules/@types 下的声明文件会被自动提取，但是如果想按需指定，可以这么写
+
+tsconfig.json
+
+```json
+{
+  "compilerOptions": {
+    "types": ["node", "jest"] // 仅 node 和 jest 下的声明文件生效
+  }
+}
+```
+
+## 九月
+
+### yarn link / yarn global add
+
+在 mac 环境中，yarn link / yarn global add 会把 bin 文件软链接到 /usr/local/bin 里面
+
+
+### keydown enter 问题
+
+在 input 框中键入回车的时候，判断回车键事件来响应一些操作，比如表单提交，如果用`event.key`来判断`Enter`的话，会有些问题
+
+在 vue 中这么写
+
+```html
+<input @keydown.enter="handleSubmit">
+```
+
+在中文输入法中，键入的时直接按回车，会触发 handleSubmit 事件
+
+改成这种就可以解决
+
+```html
+<input @keydown.13="handleSubmit">
+```
+
+原因，中文输入法改写了 keydown 回车键的 keyCode，改成了229，所以不会触发`@keydown.13`事件
